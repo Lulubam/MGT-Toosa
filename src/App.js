@@ -1,71 +1,28 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Users, Shuffle, Play, Crown, Target, Edit2, Save, X, Eye, Hand, RefreshCw } from 'lucide-react';
-
-// Card component to render a single playing card
-const Card = ({ card, size = 'default', onClick, isInteractive, isHighlighted }) => {
-  if (!card) {
-    return (
-      <div className={`
-        bg-slate-700/50 rounded-xl shadow-lg border border-slate-600
-        flex items-center justify-center text-slate-400
-        ${size === 'default' ? 'min-w-[60px] h-[90px]' : 'min-w-[80px] h-[120px]'}
-      `}>
-        <Hand size={24} />
-      </div>
-    );
-  }
-
-  const isRed = card.suit === '♥' || card.suit === '♦';
-  const rankColor = isRed ? 'text-red-600' : 'text-black';
-  const suitColor = isRed ? 'text-red-600' : 'text-black';
-
-  const cardSizeClasses = {
-    default: 'min-w-[60px] h-[90px] text-lg',
-    large: 'min-w-[80px] h-[120px] text-2xl'
-  };
-
-  const rankSizeClasses = {
-    default: 'text-sm',
-    large: 'text-xl'
-  };
-
-  const suitSizeClasses = {
-    default: 'text-xl',
-    large: 'text-3xl'
-  };
-
-  const cardClasses = `
-    flex flex-col items-center justify-between bg-white rounded-xl p-2 shadow-lg border-2 border-slate-300
-    ${cardSizeClasses[size]}
-    ${isInteractive ? 'cursor-pointer hover:scale-105 transition-transform' : ''}
-    ${isHighlighted ? 'ring-4 ring-blue-500' : ''}
-  `;
-
-  return (
-    <div className={cardClasses} onClick={onClick}>
-      <div className={`font-bold ${rankColor} ${rankSizeClasses[size]}`}>{card.rank}</div>
-      <div className={`font-bold ${suitColor} ${suitSizeClasses[size]}`}>{card.suit}</div>
-    </div>
-  );
-};
-
+import React, { useState, useEffect } from 'react';
+import { Users, Shuffle, Play, AlertCircle, Crown, Target } from 'lucide-react';
 
 const CardGame = () => {
-  const [numberOfPlayers, setNumberOfPlayers] = useState(4);
-  const [direction, setDirection] = useState('clockwise');
-  const [gameState, setGameState] = useState('setup');
-  const [players, setPlayers] = useState([]);
+  // Game state
+  const [gameState, setGameState] = useState('setup'); // setup, dealing, playing, round-end
+  const [players, setPlayers] = useState([
+    { id: 1, name: 'Player 1', cards: [], points: 0, isDealer: false, optedOut: false },
+    { id: 2, name: 'Player 2', cards: [], points: 0, isDealer: false, optedOut: false },
+    { id: 3, name: 'Player 3', cards: [], points: 0, isDealer: false, optedOut: false },
+    { id: 4, name: 'Player 4', cards: [], points: 0, isDealer: false, optedOut: false }
+  ]);
   const [deck, setDeck] = useState([]);
-  const [currentPlayer, setCurrentPlayer] = useState(null);
+  const [currentPlayer, setCurrentPlayer] = useState(0);
+  const [dealerChoice, setDealerChoice] = useState(''); // 'straight' or 'flush'
+  const [flushCount, setFlushCount] = useState(3);
+  const [direction, setDirection] = useState('clockwise');
   const [callingCard, setCallingCard] = useState(null);
+  const [playedCards, setPlayedCards] = useState([]);
   const [roundCards, setRoundCards] = useState([]);
-  const [message, setMessage] = useState('Set up the game to begin!');
-  const [dealerSelectionPhase, setDealerSelectionPhase] = useState(false);
-  const [dealerSelectionCards, setDealerSelectionCards] = useState([]);
-  const [editingPoints, setEditingPoints] = useState({});
-  const [currentPlayerView, setCurrentPlayerView] = useState(0);
+  const [message, setMessage] = useState('Welcome! Set up the game to begin.');
+  const [flushedCards, setFlushedCards] = useState([]);
+  const [selectedPlayer, setSelectedPlayer] = useState(0); // For viewing specific player's cards
 
-  // Helper function to create a new, shuffled deck
+  // Create deck without 2s, Jacks, Queens, Kings, Jokers
   const createDeck = () => {
     const suits = ['♠', '♥', '♦', '♣'];
     const ranks = ['A', '3', '4', '5', '6', '7', '8', '9', '10'];
@@ -86,7 +43,6 @@ const CardGame = () => {
   };
 
   const getCardValue = (rank, suit) => {
-    // Special card values
     if (rank === '3' && suit === '♠') return 12;
     if (rank === '3') return 6;
     if (rank === '4') return 4;
@@ -110,82 +66,159 @@ const CardGame = () => {
     return shuffled;
   };
 
-  // Function to initialize players and start the dealer selection
   const initializeGame = () => {
-    const newPlayers = Array.from({ length: numberOfPlayers }, (_, i) => ({
-      id: i + 1,
-      name: `Player ${i + 1}`,
-      cards: [],
-      points: 0,
-      isDealer: false,
-      optedOut: false,
-    }));
-    setPlayers(newPlayers);
-    setCurrentPlayerView(0);
-
     const newDeck = createDeck();
     setDeck(newDeck);
-
     setDealerSelectionPhase(true);
+    
+    // Each player draws a card to determine dealer
     const selectionCards = [];
-    for (let i = 0; i < newPlayers.length; i++) {
+    const newPlayers = [...players];
+    
+    for (let i = 0; i < players.length; i++) {
       selectionCards.push({
         playerId: i,
         card: newDeck[i]
       });
     }
+    
     setDealerSelectionCards(selectionCards);
-    setMessage('Each player has drawn a card. The highest card will determine the first dealer.');
+    setMessage('Each player has drawn a card. Click "Determine Dealer" to see who deals first.');
   };
 
-  const determineDealer = () => {
-    let highestCardSelection = dealerSelectionCards[0];
-    for (let i = 1; i < dealerSelectionCards.length; i++) {
-      if (getCardNumber(dealerSelectionCards[i].card.rank) > getCardNumber(highestCardSelection.card.rank)) {
-        highestCardSelection = dealerSelectionCards[i];
+  const determineDealerFromCards = (useHighest = true) => {
+    let dealerCard = dealerSelectionCards[0];
+    
+    for (let selection of dealerSelectionCards) {
+      if (useHighest) {
+        if (getCardNumber(selection.card.rank) > getCardNumber(dealerCard.card.rank)) {
+          dealerCard = selection;
+        }
+      } else {
+        if (getCardNumber(selection.card.rank) < getCardNumber(dealerCard.card.rank)) {
+          dealerCard = selection;
+        }
       }
     }
-
-    const newPlayers = [...players];
-    const dealerIndex = highestCardSelection.playerId;
-    newPlayers.forEach(p => p.isDealer = false);
-    newPlayers[dealerIndex].isDealer = true;
-    setPlayers(newPlayers);
     
+    const newPlayers = [...players];
+    newPlayers[dealerCard.playerId].isDealer = true;
+    setPlayers(newPlayers);
+    setCurrentPlayer(dealerCard.playerId);
     setDealerSelectionPhase(false);
     setGameState('dealing');
-    setMessage(`${newPlayers[dealerIndex].name} is the dealer! The game will now deal the cards.`);
-    
-    setTimeout(() => dealCards(), 2000);
+    setMessage(`${newPlayers[dealerCard.playerId].name} deals first! (Drew ${dealerCard.card.rank}${dealerCard.card.suit})`);
   };
 
-  // Automated dealing function
-  const dealCards = () => {
-    const newPlayers = [...players];
-    const newDeck = createDeck();
-    
-    const dealerIndex = newPlayers.findIndex(p => p.isDealer);
-    let currentPlayerIndex = (dealerIndex + 1) % newPlayers.length;
+  // Manual dealing state
+  const [manualDealing, setManualDealing] = useState(false);
+  const [currentDealPlayer, setCurrentDealPlayer] = useState(0);
+  const [dealRound, setDealRound] = useState(0);
+  const [dealingToPlayer, setDealingToPlayer] = useState(null);
+  
+  // Game history and player view
+  const [gameHistory, setGameHistory] = useState([]);
+  const [currentPlayerView, setCurrentPlayerView] = useState(0);
+  const [dealerSelectionPhase, setDealerSelectionPhase] = useState(true);
+  const [dealerSelectionCards, setDealerSelectionCards] = useState([]);
 
-    // Deal 5 cards to each player, starting after the dealer and ending with the dealer
-    for (let cardCount = 0; cardCount < 5; cardCount++) {
-      for (let i = 0; i < newPlayers.length; i++) {
-        if (newDeck.length > 0) {
-          const card = newDeck.shift();
-          newPlayers[currentPlayerIndex].cards.push(card);
-        }
-        currentPlayerIndex = (currentPlayerIndex + 1) % newPlayers.length;
+  const dealCards = () => {
+    if (!dealerChoice) return;
+    
+    let cardIndex = 0;
+    const newPlayers = [...players];
+    const newFlushedCards = [];
+    
+    // Handle flush cards if chosen
+    if (dealerChoice === 'flush') {
+      for (let i = 0; i < flushCount; i++) {
+        newFlushedCards.push(deck[cardIndex]);
+        cardIndex++;
       }
+      setFlushedCards(newFlushedCards);
     }
     
-    setPlayers(newPlayers);
-    setDeck(newDeck);
-    setGameState('playing');
+    // Start manual dealing
+    setManualDealing(true);
+    setCurrentDealPlayer(0);
+    setDealRound(0);
+    setDeck(deck.slice(cardIndex));
+    setMessage(`Manual dealing started. Click "Deal Card" to give cards one by one.`);
+  };
+
+  const dealSingleCard = (targetPlayerId = null) => {
+    if (!manualDealing || deck.length === 0) return;
     
-    // The player to the left of the dealer starts the round
-    const firstPlayerIndex = (dealerIndex + 1) % newPlayers.length;
-    setCurrentPlayer(firstPlayerIndex);
-    setMessage(`Cards dealt! ${newPlayers[firstPlayerIndex].name} leads the round!`);
+    const newPlayers = [...players];
+    let playerToReceive;
+    
+    if (targetPlayerId !== null) {
+      // Manual selection - check for dealing foul
+      const expectedPlayerIndex = direction === 'clockwise' ? currentDealPlayer : (players.length - 1 - currentDealPlayer);
+      let expectedPlayer = expectedPlayerIndex;
+      let attempts = 0;
+      
+      // Find the expected active player
+      while (players[expectedPlayer].optedOut && attempts < players.length) {
+        expectedPlayer = direction === 'clockwise' ? 
+          (expectedPlayer + 1) % players.length : 
+          (expectedPlayer - 1 + players.length) % players.length;
+        attempts++;
+      }
+      
+      if (targetPlayerId !== expectedPlayer) {
+        // Dealing foul - wrong player
+        const dealerIndex = players.findIndex(p => p.isDealer);
+        applyFoul(dealerIndex, "Dealing cards to wrong player!");
+      }
+      
+      playerToReceive = targetPlayerId;
+    } else {
+      // Automatic dealing
+      const playerIndex = direction === 'clockwise' ? currentDealPlayer : (players.length - 1 - currentDealPlayer);
+      let actualPlayerIndex = playerIndex;
+      let attempts = 0;
+      
+      while (players[actualPlayerIndex].optedOut && attempts < players.length) {
+        actualPlayerIndex = direction === 'clockwise' ? 
+          (actualPlayerIndex + 1) % players.length : 
+          (actualPlayerIndex - 1 + players.length) % players.length;
+        attempts++;
+      }
+      
+      playerToReceive = actualPlayerIndex;
+    }
+    
+    // Deal card to selected player
+    newPlayers[playerToReceive].cards.push(deck[0]);
+    setPlayers(newPlayers);
+    setDeck(deck.slice(1));
+    setDealingToPlayer(null);
+    
+    // Move to next player in dealing order
+    let nextPlayer = (currentDealPlayer + 1) % players.length;
+    let nextRound = dealRound;
+    
+    const activePlayers = players.filter(p => !p.optedOut);
+    if (currentDealPlayer >= activePlayers.length - 1) {
+      nextPlayer = 0;
+      nextRound++;
+    }
+    
+    setCurrentDealPlayer(nextPlayer);
+    setDealRound(nextRound);
+    
+    // Check if dealing is complete
+    if (nextRound >= 3) {
+      setManualDealing(false);
+      setGameState('playing');
+      const dealerIndex = players.findIndex(p => p.isDealer);
+      setCurrentPlayer(dealerIndex);
+      setMessage(`Cards dealt! ${players[dealerIndex].name} starts the round.`);
+    } else {
+      const nextExpectedPlayer = direction === 'clockwise' ? nextPlayer : (players.length - 1 - nextPlayer);
+      setMessage(`Dealing round ${nextRound + 1}/3. Next card should go to: ${newPlayers[nextExpectedPlayer].name}`);
+    }
   };
 
   const playCard = (playerId, cardIndex) => {
@@ -194,41 +227,51 @@ const CardGame = () => {
     const player = players[playerId];
     const card = player.cards[cardIndex];
     
-    // Check for foul: must follow suit if possible
+    // Validate play
     if (callingCard && card.suit !== callingCard.suit) {
       const hasCallingCardSuit = player.cards.some(c => c.suit === callingCard.suit);
       if (hasCallingCardSuit) {
-        applyFoul(playerId, "Must follow the calling card suit!");
+        applyFoul(playerId, "Must follow calling card suit when you have it!");
         return;
       }
     }
     
+    // Play the card
     const newPlayers = [...players];
     const playedCard = newPlayers[playerId].cards.splice(cardIndex, 1)[0];
     
     const newRoundCards = [...roundCards, { card: playedCard, playerId }];
     setRoundCards(newRoundCards);
     
+    // Set calling card if first card of round
     if (!callingCard) {
       setCallingCard(playedCard);
     }
     
     setPlayers(newPlayers);
     
-    let nextPlayer = direction === 'clockwise' ? (currentPlayer + 1) % players.length : (currentPlayer - 1 + players.length) % players.length;
+    // Move to next player
+    let nextPlayer = direction === 'clockwise' ? 
+      (currentPlayer + 1) % players.length : 
+      (currentPlayer - 1 + players.length) % players.length;
+    
+    // Skip opted out players
     while (players[nextPlayer].optedOut && newRoundCards.length < players.filter(p => !p.optedOut).length) {
-      nextPlayer = direction === 'clockwise' ? (nextPlayer + 1) % players.length : (nextPlayer - 1 + players.length) % players.length;
+      nextPlayer = direction === 'clockwise' ? 
+        (nextPlayer + 1) % players.length : 
+        (nextPlayer - 1 + players.length) % players.length;
     }
     
     setCurrentPlayer(nextPlayer);
     
-    const activePlayersCount = players.filter(p => !p.optedOut).length;
-    if (newRoundCards.length === activePlayersCount) {
-      setTimeout(() => endRound(newRoundCards), 1500);
+    // Check if round is complete
+    if (newRoundCards.length === players.filter(p => !p.optedOut).length) {
+      endRound(newRoundCards);
     }
   };
-  
+
   const endRound = (roundCards) => {
+    // Find winner (highest number of calling card suit)
     const callingCardSuit = callingCard.suit;
     const callingCardPlays = roundCards.filter(rc => rc.card.suit === callingCardSuit);
     
@@ -238,68 +281,108 @@ const CardGame = () => {
         getCardNumber(current.card.rank) > getCardNumber(prev.card.rank) ? current : prev
       );
     } else {
-      winner = roundCards.find(rc => rc.playerId === roundCards[0].playerId);
+      winner = roundCards[0]; // First player if no calling card suit played
     }
-
-    const winningPlayerIndex = winner.playerId;
-    const playerWhoTakesDamage = players.filter(p => !p.optedOut).find(p => p.id !== winner.playerId);
     
-    const newPlayers = [...players];
-    const damage = winner.card.value;
-    newPlayers[playerWhoTakesDamage.id - 1].points += damage;
+    setCurrentPlayer(winner.playerId);
     
-    if (newPlayers[playerWhoTakesDamage.id - 1].points >= 12) {
-      newPlayers[playerWhoTakesDamage.id - 1].optedOut = true;
-      setMessage(`Round over! ${newPlayers[playerWhoTakesDamage.id - 1].name} is knocked out with ${newPlayers[playerWhoTakesDamage.id - 1].points} points! ${newPlayers[winningPlayerIndex].name} deals next round.`);
+    // Check if this was the last round (all active players have 0 cards)
+    const activePlayers = players.filter(p => !p.optedOut);
+    const allCardsPlayed = activePlayers.every(p => p.cards.length === 0);
+    
+    if (allCardsPlayed) {
+      handleEndOfRound(winner, roundCards);
     } else {
-      setMessage(`Round over! ${newPlayers[playerWhoTakesDamage.id - 1].name} takes ${damage} damage (${newPlayers[playerWhoTakesDamage.id - 1].points} total points). ${newPlayers[winningPlayerIndex].name} deals next round.`);
+      setCallingCard(null);
+      setRoundCards([]);
+      setMessage(`${players[winner.playerId].name} wins the trick and leads next!`);
+    }
+  };
+
+  const handleEndOfRound = (winner, roundCards) => {
+    // Add this round to history
+    const roundHistory = {
+      roundNumber: gameHistory.length + 1,
+      cards: roundCards.map(rc => ({
+        playerName: players[rc.playerId].name,
+        card: rc.card
+      })),
+      winner: players[winner.playerId].name,
+      winningCard: winner.card
+    };
+    
+    setGameHistory(prev => [...prev, roundHistory]);
+    
+    // This is the end of the round - all players have played all their cards
+    const attackCard = winner.card;
+    const attackValue = attackCard.value;
+    
+    let nextPlayerId = direction === 'clockwise' ? 
+      (winner.playerId + 1) % players.length : 
+      (winner.playerId - 1 + players.length) % players.length;
+    
+    // Skip opted out players for targeting
+    while (players[nextPlayerId].optedOut) {
+      nextPlayerId = direction === 'clockwise' ? 
+        (nextPlayerId + 1) % players.length : 
+        (nextPlayerId - 1 + players.length) % players.length;
     }
     
+    // Apply damage to the next player
+    const newPlayers = [...players];
+    newPlayers[nextPlayerId].points += attackValue;
+    
+    if (newPlayers[nextPlayerId].points >= 12) {
+      newPlayers[nextPlayerId].optedOut = true;
+      setMessage(`Round over! ${newPlayers[nextPlayerId].name} is knocked out with ${newPlayers[nextPlayerId].points} points! ${newPlayers[winner.playerId].name} deals next round.`);
+    } else {
+      setMessage(`Round over! ${newPlayers[nextPlayerId].name} takes ${attackValue} damage (${newPlayers[nextPlayerId].points} total points). ${newPlayers[winner.playerId].name} deals next round.`);
+    }
+    
+    // Set new dealer
     newPlayers.forEach(p => p.isDealer = false);
-    newPlayers[winningPlayerIndex].isDealer = true;
+    newPlayers[winner.playerId].isDealer = true;
     
     setPlayers(newPlayers);
+    
+    // Reset round state
     setCallingCard(null);
     setRoundCards([]);
     
-    const allCardsPlayed = newPlayers.every(p => p.cards.length === 0 || p.optedOut);
-    if (allCardsPlayed) {
-      const activePlayers = newPlayers.filter(p => !p.optedOut);
-      if (activePlayers.length <= 1) {
-        setGameState('game-end');
-        if (activePlayers.length === 1) {
-          setMessage(`🏆 ${activePlayers[0].name} wins the game! 🏆`);
-        } else {
-          setMessage('Game over - all players are out!');
-        }
-      } else {
-        setTimeout(() => startNewRound(), 3000);
-      }
+    // Check game end
+    const activePlayers = newPlayers.filter(p => !p.optedOut);
+    if (activePlayers.length <= 1) {
+      setGameState('game-end');
+      setMessage(activePlayers.length === 1 ? `${activePlayers[0].name} wins the game!` : 'Game over - no players remaining!');
     } else {
-      // Continue to the next trick within the same round
-      setCurrentPlayer(winningPlayerIndex);
-      setMessage(`${players[winningPlayerIndex].name} wins the trick and leads the next one!`);
+      setTimeout(() => startNewRound(), 3000);
     }
   };
 
   const startNewRound = () => {
-    const newPlayers = [...players];
+    // Reset for new round
     const newDeck = createDeck();
+    setDeck(newDeck);
+    setGameState('dealing');
+    setCallingCard(null);
+    setRoundCards([]);
+    setDealerChoice('');
+    setFlushedCards([]);
+    setManualDealing(false);
+    setCurrentDealPlayer(0);
+    setDealRound(0);
+    setDealingToPlayer(null);
     
+    const newPlayers = [...players];
     newPlayers.forEach(player => {
       if (!player.optedOut) {
         player.cards = [];
       }
     });
-    
     setPlayers(newPlayers);
-    setDeck(newDeck);
-    setGameState('dealing');
-    setCallingCard(null);
-    setRoundCards([]);
     
-    // Auto-deal for the new round
-    setTimeout(() => dealCards(), 2000);
+    const dealerIndex = players.findIndex(p => p.isDealer);
+    setCurrentPlayer(dealerIndex);
   };
 
   const applyFoul = (playerId, reason) => {
@@ -309,249 +392,335 @@ const CardGame = () => {
     setMessage(`Foul! ${newPlayers[playerId].name}: ${reason} (+2 points)`);
   };
 
-  const handlePointOverride = (playerId, newPoints) => {
-    const newPlayers = [...players];
-    newPlayers[playerId].points = parseInt(newPoints) || 0;
-    setPlayers(newPlayers);
-    setEditingPoints({ ...editingPoints, [playerId]: false });
-  };
-
   const optOut = (playerId) => {
     const newPlayers = [...players];
     newPlayers[playerId].optedOut = true;
     setPlayers(newPlayers);
-    setMessage(`${newPlayers[playerId].name} has opted out of the round.`);
-    
-    const activePlayersCount = newPlayers.filter(p => !p.optedOut).length;
-    if (activePlayersCount <= 1) {
-      setTimeout(() => endRound(roundCards), 1500);
-    }
+    setMessage(`${newPlayers[playerId].name} has opted out of the game.`);
   };
-
-  const resetGame = () => {
-    setGameState('setup');
-    setPlayers([]);
-    setRoundCards([]);
-    setCallingCard(null);
-    setDealerSelectionPhase(false);
-    setMessage('Game reset. Set up a new game to begin.');
-  };
-  
 
   return (
-    <div className="min-h-screen bg-green-800 p-4 font-sans text-white">
-      <div className="max-w-7xl mx-auto space-y-8">
-        <div className="bg-green-900 bg-opacity-80 backdrop-blur-sm rounded-2xl p-6 shadow-2xl border-4 border-green-700">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
-            <h1 className="text-5xl font-bold text-white flex items-center gap-4">
-              <span role="img" aria-label="spade" className="text-white text-6xl">♠</span>
-              Card Game
-            </h1>
-            <button
-                onClick={resetGame}
-                className="px-6 py-2 bg-slate-600 text-white rounded-full font-semibold hover:bg-slate-700 flex items-center gap-2 transition-colors mt-4 sm:mt-0"
-              >
-                <RefreshCw size={20} />
-                Reset Game
-              </button>
-          </div>
-          <p className="text-slate-300 italic text-xl mt-2">{message}</p>
+    <div className="min-h-screen bg-gradient-to-br from-green-800 to-green-900 p-4">
+      <div className="max-w-6xl mx-auto">
+        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 mb-6">
+          <h1 className="text-3xl font-bold text-white mb-2 flex items-center gap-2">
+            <div className="w-8 h-8 bg-white rounded border-2 border-gray-300 flex items-center justify-center text-black font-bold text-sm">♠</div>
+            Card Game
+          </h1>
+          <p className="text-green-100">{message}</p>
         </div>
 
+        {/* Game Setup */}
         {gameState === 'setup' && (
-          <div className="bg-green-900 bg-opacity-80 backdrop-blur-sm rounded-2xl p-6 shadow-2xl border-4 border-green-700">
-            <h2 className="text-3xl font-bold text-white mb-4">Game Setup</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              <div>
-                <label className="text-slate-300 block mb-2 text-lg">Number of Players:</label>
-                <select 
-                  value={numberOfPlayers} 
-                  onChange={(e) => setNumberOfPlayers(parseInt(e.target.value))}
-                  className="w-full px-4 py-2 rounded-lg bg-green-700 text-white focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                >
-                  <option value={3}>3 Players</option>
-                  <option value={4}>4 Players</option>
-                  <option value={5}>5 Players</option>
-                  <option value={6}>6 Players</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-slate-300 block mb-2 text-lg">Direction:</label>
-                <select 
-                  value={direction} 
-                  onChange={(e) => setDirection(e.target.value)}
-                  className="w-full px-4 py-2 rounded-lg bg-green-700 text-white focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                >
-                  <option value="clockwise">Clockwise</option>
-                  <option value="anticlockwise">Anticlockwise</option>
-                </select>
-              </div>
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 mb-6">
+            <h2 className="text-xl font-bold text-white mb-4">Game Setup</h2>
+            <div className="flex gap-4 mb-4">
+              <select 
+                value={direction} 
+                onChange={(e) => setDirection(e.target.value)}
+                className="px-4 py-2 rounded-lg bg-white/20 text-white"
+              >
+                <option value="clockwise">Clockwise</option>
+                <option value="anticlockwise">Anticlockwise</option>
+              </select>
+              <button 
+                onClick={initializeGame}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              >
+                <Play className="w-4 h-4" />
+                Draw Cards for Dealer
+              </button>
             </div>
-            <button 
-              onClick={initializeGame}
-              className="w-full px-8 py-4 bg-yellow-400 text-green-900 rounded-full font-bold text-xl hover:bg-yellow-500 flex items-center justify-center gap-3 transition-colors shadow-lg"
-            >
-              <Play className="w-6 h-6" />
-              Start Game
-            </button>
           </div>
         )}
 
-        {dealerSelectionPhase && (
-          <div className="bg-green-900 bg-opacity-80 backdrop-blur-sm rounded-2xl p-6 shadow-2xl border-4 border-green-700 text-center">
-            <h2 className="text-3xl font-bold text-white mb-4">Dealer Selection</h2>
-            <p className="text-slate-300 text-xl mb-6">Each player has drawn a card. The player with the highest card will deal first.</p>
-            <div className="flex flex-wrap gap-6 justify-center">
+        {/* Dealer Selection Phase */}
+        {dealerSelectionPhase && dealerSelectionCards.length > 0 && (
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 mb-6">
+            <h2 className="text-xl font-bold text-white mb-4">Dealer Selection</h2>
+            <div className="grid grid-cols-4 gap-4 mb-4">
               {dealerSelectionCards.map((selection, index) => (
                 <div key={index} className="text-center">
-                  <div className="text-white font-semibold mb-2 text-lg">{players[selection.playerId].name}</div>
-                  <Card card={selection.card} size="large" />
+                  <div className="text-white mb-2">{players[selection.playerId].name}</div>
+                  <div className="bg-white rounded-lg p-3 min-w-20">
+                    <div className={`font-bold text-lg ${selection.card.suit === '♥' || selection.card.suit === '♦' ? 'text-red-600' : 'text-black'}`}>
+                      {selection.card.rank}
+                    </div>
+                    <div className={`text-xl ${selection.card.suit === '♥' || selection.card.suit === '♦' ? 'text-red-600' : 'text-black'}`}>
+                      {selection.card.suit}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
-            <button 
-              onClick={determineDealer}
-              className="mt-8 px-8 py-4 bg-yellow-400 text-green-900 rounded-full font-bold text-xl hover:bg-yellow-500 transition-colors shadow-lg"
-            >
-              Determine Dealer
-            </button>
+            <div className="flex gap-4">
+              <button 
+                onClick={() => determineDealerFromCards(true)}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+              >
+                Highest Card Deals
+              </button>
+              <button 
+                onClick={() => determineDealerFromCards(false)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Lowest Card Deals
+              </button>
+            </div>
           </div>
         )}
 
-        {gameState === 'playing' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-8">
-              <div className="bg-green-900 bg-opacity-80 backdrop-blur-sm rounded-2xl p-6 shadow-2xl border-4 border-green-700">
-                <h3 className="text-2xl font-bold text-white mb-4">Players</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {players.map((player, index) => (
-                    <div 
-                      key={index} 
-                      className={`p-4 rounded-xl shadow-lg border-2 transition-all duration-300
-                      ${player.isDealer ? 'bg-yellow-400/20 border-yellow-400' : 'bg-green-700/50 border-green-600'}
-                      ${currentPlayer === index && !player.optedOut ? 'ring-4 ring-blue-400' : ''}
-                      ${player.optedOut ? 'bg-red-900/50 opacity-60 border-red-800' : ''}`}
+        {/* Dealing Phase */}
+        {gameState === 'dealing' && (
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 mb-6">
+            <h2 className="text-xl font-bold text-white mb-4">Dealer's Choice</h2>
+            <div className="flex gap-4 mb-4">
+              <button 
+                onClick={() => setDealerChoice('straight')}
+                className={`px-4 py-2 rounded-lg ${dealerChoice === 'straight' ? 'bg-blue-600' : 'bg-white/20'} text-white`}
+              >
+                Serve Straight
+              </button>
+              <button 
+                onClick={() => setDealerChoice('flush')}
+                className={`px-4 py-2 rounded-lg ${dealerChoice === 'flush' ? 'bg-blue-600' : 'bg-white/20'} text-white`}
+              >
+                Flush Cards
+              </button>
+              {dealerChoice === 'flush' && (
+                <input 
+                  type="number" 
+                  min="1" 
+                  max="5" 
+                  value={flushCount}
+                  onChange={(e) => setFlushCount(parseInt(e.target.value) || 3)}
+                  className="w-16 px-2 py-2 rounded-lg bg-white/20 text-white text-center"
+                />
+              )}
+            </div>
+            {dealerChoice && !manualDealing && (
+              <button 
+                onClick={dealCards}
+                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+              >
+                <Shuffle className="w-4 h-4" />
+                Start Manual Dealing
+              </button>
+            )}
+            {manualDealing && (
+              <div className="space-y-4">
+                <div className="text-white mb-2">
+                  Dealing Round {dealRound + 1}/3 - Select player to receive card:
+                </div>
+                <div className="flex gap-2 mb-4">
+                  {players.filter(p => !p.optedOut).map((player, index) => (
+                    <button
+                      key={player.id}
+                      onClick={() => setDealingToPlayer(index)}
+                      className={`px-3 py-2 rounded-lg text-white ${dealingToPlayer === index ? 'bg-yellow-600' : 'bg-white/20'}`}
                     >
-                      <div className="flex flex-col gap-2">
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-white text-xl">
-                            {player.name}
-                          </span>
-                          {player.isDealer && <Crown className="w-6 h-6 text-yellow-400" />}
-                          {currentPlayer === index && <Target className="w-6 h-6 text-blue-400 animate-pulse" />}
+                      {player.name}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-4">
+                  <button 
+                    onClick={() => dealSingleCard(dealingToPlayer)}
+                    disabled={dealingToPlayer === null}
+                    className="px-6 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Deal Card to Selected Player
+                  </button>
+                  <button 
+                    onClick={() => dealSingleCard()}
+                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                  >
+                    Auto Deal (Correct Order)
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Flushed Cards */}
+        {flushedCards.length > 0 && (
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 mb-6">
+            <h3 className="text-lg font-bold text-white mb-2">Flushed Cards</h3>
+            <div className="flex gap-2">
+              {flushedCards.map((card, index) => (
+                <div key={index} className="bg-white rounded-lg p-2 text-center min-w-16">
+                  <div className={`font-bold ${card.suit === '♥' || card.suit === '♦' ? 'text-red-600' : 'text-black'}`}>
+                    {card.rank}
+                  </div>
+                  <div className={card.suit === '♥' || card.suit === '♦' ? 'text-red-600' : 'text-black'}>
+                    {card.suit}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Current Round */}
+        {gameState === 'playing' && callingCard && (
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 mb-6">
+            <h3 className="text-lg font-bold text-white mb-2">Current Round</h3>
+            <div className="flex items-center gap-4 mb-4">
+              <span className="text-white">Calling Card:</span>
+              <div className="bg-white rounded-lg p-2 text-center min-w-16">
+                <div className={`font-bold ${callingCard.suit === '♥' || callingCard.suit === '♦' ? 'text-red-600' : 'text-black'}`}>
+                  {callingCard.rank}
+                </div>
+                <div className={callingCard.suit === '♥' || callingCard.suit === '♦' ? 'text-red-600' : 'text-black'}>
+                  {callingCard.suit}
+                </div>
+              </div>
+            </div>
+            {roundCards.length > 0 && (
+              <div>
+                <span className="text-white mb-2 block">Played this round:</span>
+                <div className="flex gap-2">
+                  {roundCards.map((rc, index) => (
+                    <div key={index} className="text-center">
+                      <div className="bg-white rounded-lg p-2 min-w-16 mb-1">
+                        <div className={`font-bold ${rc.card.suit === '♥' || rc.card.suit === '♦' ? 'text-red-600' : 'text-black'}`}>
+                          {rc.card.rank}
                         </div>
-                        <div className="flex items-center justify-between mt-1">
-                          <div className="flex items-center gap-1 text-slate-200 text-md">
-                            <Hand size={18} /> {player.cards.length} cards
-                          </div>
-                          {editingPoints[index] ? (
-                            <div className="flex items-center gap-1">
-                              <input
-                                type="number"
-                                value={player.points}
-                                onChange={(e) => {
-                                  const newPlayers = [...players];
-                                  newPlayers[index].points = parseInt(e.target.value) || 0;
-                                  setPlayers(newPlayers);
-                                }}
-                                className="w-16 px-2 py-1 text-center text-black rounded-md"
-                              />
-                              <button onClick={() => handlePointOverride(index, player.points)}><Save className="w-5 h-5 text-green-400" /></button>
-                              <button onClick={() => setEditingPoints({ ...editingPoints, [index]: false })}><X className="w-5 h-5 text-red-400" /></button>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <span className="text-white font-bold text-lg">{player.points} pts</span>
-                              <button onClick={() => setEditingPoints({ ...editingPoints, [index]: true })}><Edit2 className="w-4 h-4 text-slate-400 hover:text-white" /></button>
-                            </div>
-                          )}
+                        <div className={rc.card.suit === '♥' || rc.card.suit === '♦' ? 'text-red-600' : 'text-black'}>
+                          {rc.card.suit}
                         </div>
                       </div>
-                      {player.optedOut && (
-                        <div className="text-red-400 font-bold mt-2 text-sm">KNOCKED OUT</div>
-                      )}
+                      <div className="text-xs text-green-100">{players[rc.playerId].name}</div>
                     </div>
                   ))}
                 </div>
               </div>
+            )}
+          </div>
+        )}
 
-              <div className="bg-green-900 bg-opacity-80 backdrop-blur-sm rounded-2xl p-6 shadow-2xl border-4 border-green-700">
-                <h3 className="text-2xl font-bold text-white mb-4">Cards in Play</h3>
-                <div className="flex flex-wrap gap-6 justify-center">
-                  {roundCards.length > 0 ? roundCards.map(rc => (
-                    <div key={rc.playerId} className="text-center">
-                      <div className="text-slate-300 text-sm mb-1">{players[rc.playerId].name}</div>
-                      <Card card={rc.card} />
-                    </div>
-                  )) : (
-                    <p className="text-slate-400 italic">No cards played yet this trick.</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="bg-green-900 bg-opacity-80 backdrop-blur-sm rounded-2xl p-6 shadow-2xl border-4 border-green-700">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-2xl font-bold text-white flex items-center gap-2">
-                    <Hand size={28} /> My Hand: <span className="text-yellow-400">{players[currentPlayerView]?.name}</span>
-                  </h3>
-                  {players[currentPlayerView]?.id - 1 === currentPlayer && (
-                    <button onClick={() => optOut(currentPlayer)} className="px-6 py-2 bg-red-600 text-white rounded-full font-semibold hover:bg-red-700 transition-colors">Opt Out of Round</button>
-                  )}
-                </div>
-                
-                <div className="flex flex-wrap gap-4 justify-center">
-                  {players[currentPlayerView]?.cards.map((card, cardIndex) => (
-                    <Card
-                      key={card.id}
-                      card={card}
-                      isInteractive={players[currentPlayerView]?.id - 1 === currentPlayer}
-                      onClick={() => playCard(players[currentPlayerView]?.id - 1, cardIndex)}
-                    />
-                  ))}
-                </div>
-                
-                {numberOfPlayers > 1 && (
-                  <div className="mt-6 flex flex-col sm:flex-row items-center gap-4">
-                    <label className="text-slate-300 font-semibold text-lg flex items-center gap-2">
-                      <Eye size={20} /> View Hand:
-                    </label>
-                    <select
-                      value={currentPlayerView}
-                      onChange={(e) => setCurrentPlayerView(parseInt(e.target.value))}
-                      className="px-4 py-2 rounded-lg bg-green-700 text-white focus:outline-none focus:ring-2 focus:ring-yellow-400"
+        {/* Player Card Selector - Only show current player's cards */}
+        {gameState === 'playing' && (
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 mb-6">
+            <h3 className="text-lg font-bold text-white mb-3">Select Your Player View</h3>
+            <div className="flex gap-2 mb-4">
+              {players.map((player, index) => (
+                <button
+                  key={player.id}
+                  onClick={() => setCurrentPlayerView(index)}
+                  className={`px-3 py-2 rounded-lg ${currentPlayerView === index ? 'bg-blue-600' : 'bg-white/20'} text-white text-sm`}
+                >
+                  {player.name}
+                </button>
+              ))}
+            </div>
+            
+            {/* Only show cards for the selected player view */}
+            {players[currentPlayerView].cards.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-sm text-green-200">Your cards:</div>
+                <div className="flex flex-wrap gap-2">
+                  {players[currentPlayerView].cards.map((card, cardIndex) => (
+                    <button
+                      key={cardIndex}
+                      onClick={() => playCard(currentPlayerView, cardIndex)}
+                      disabled={currentPlayerView !== currentPlayer || players[currentPlayerView].optedOut}
+                      className="bg-white rounded p-2 text-sm min-w-16 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {players.map((player, index) => (
-                        <option key={index} value={index}>{player.name}</option>
-                      ))}
-                    </select>
+                      <div className={`font-bold ${card.suit === '♥' || card.suit === '♦' ? 'text-red-600' : 'text-black'}`}>
+                        {card.rank}
+                      </div>
+                      <div className={card.suit === '♥' || card.suit === '♦' ? 'text-red-600' : 'text-black'}>
+                        {card.suit}
+                      </div>
+                      <div className="text-gray-600 text-xs">({card.value})</div>
+                    </button>
+                  ))}
+                </div>
+                {currentPlayerView !== currentPlayer && !players[currentPlayerView].optedOut && (
+                  <div className="text-yellow-200 text-sm mt-2">
+                    Wait for your turn to play cards
                   </div>
                 )}
               </div>
-            </div>
+            )}
+          </div>
+        )}
 
-            <div className="lg:col-span-1">
-              <div className="bg-green-900 bg-opacity-80 backdrop-blur-sm rounded-2xl p-6 shadow-2xl border-4 border-green-700">
-                <h3 className="text-2xl font-bold text-white mb-4">Game History</h3>
-                <div className="bg-green-700/50 p-4 rounded-xl h-96 overflow-y-auto border border-green-600">
-                  <p className="text-slate-400 italic">History coming soon...</p>
+        {/* Game History */}
+        {gameHistory.length > 0 && (
+          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 mb-6">
+            <h3 className="text-lg font-bold text-white mb-3">Previous Rounds</h3>
+            <div className="max-h-60 overflow-y-auto space-y-3">
+              {gameHistory.map((round, index) => (
+                <div key={index} className="bg-white/5 rounded-lg p-3">
+                  <div className="text-white font-semibold mb-2">Round {round.roundNumber}</div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-2">
+                    {round.cards.map((cardPlay, cardIndex) => (
+                      <div key={cardIndex} className="text-center">
+                        <div className="bg-white rounded p-1 mb-1 min-w-12">
+                          <div className={`font-bold text-xs ${cardPlay.card.suit === '♥' || cardPlay.card.suit === '♦' ? 'text-red-600' : 'text-black'}`}>
+                            {cardPlay.card.rank}
+                          </div>
+                          <div className={`text-xs ${cardPlay.card.suit === '♥' || cardPlay.card.suit === '♦' ? 'text-red-600' : 'text-black'}`}>
+                            {cardPlay.card.suit}
+                          </div>
+                        </div>
+                        <div className="text-xs text-green-100">{cardPlay.playerName}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-green-200 text-sm">
+                    Winner: {round.winner} with {round.winningCard.rank}{round.winningCard.suit}
+                  </div>
                 </div>
-              </div>
+              ))}
             </div>
           </div>
         )}
+        {/* Players */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {players.map((player, index) => (
+            <div key={player.id} className={`bg-white/10 backdrop-blur-sm rounded-xl p-4 ${player.optedOut ? 'opacity-50' : ''} ${index === currentPlayer && !player.optedOut ? 'ring-2 ring-yellow-400' : ''}`}>
+              <div className="flex items-center gap-2 mb-3">
+                <Users className="w-5 h-5 text-white" />
+                <h3 className="font-bold text-white">{player.name}</h3>
+                {player.isDealer && <Crown className="w-4 h-4 text-yellow-400" />}
+                {player.optedOut && <Target className="w-4 h-4 text-red-400" />}
+              </div>
+              
+              <div className="text-sm text-green-100 mb-2">
+                Points: {player.points}/12
+              </div>
+              
+              <div className="text-sm text-green-100 mb-3">
+                Cards: {player.cards.length}
+              </div>
+              
+              {/* Player actions */}
+              {gameState === 'playing' && !player.optedOut && (
+                <button
+                  onClick={() => optOut(index)}
+                  className="mt-2 px-3 py-1 bg-red-600/50 text-white rounded text-xs hover:bg-red-600"
+                >
+                  Opt Out
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
 
-        {gameState === 'game-end' && (
-          <div className="bg-green-900 bg-opacity-80 backdrop-blur-sm rounded-2xl p-6 shadow-2xl border-4 border-green-700 text-center">
-            <h2 className="text-4xl font-bold text-white mb-4">Game Over!</h2>
-            <p className="text-slate-300 text-2xl mb-6">{message}</p>
-            <button 
-              onClick={resetGame}
-              className="px-8 py-4 bg-yellow-400 text-green-900 rounded-full font-bold text-xl hover:bg-yellow-500 transition-colors shadow-lg"
-            >
-              Start New Game
-            </button>
+        {/* Game Rules */}
+        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6">
+          <h3 className="text-lg font-bold text-white mb-3">Game Rules Summary</h3>
+          <div className="text-green-100 text-sm space-y-2">
+            <p><strong>Card Values:</strong> 3♠=12, other 3s=6, 4s=4, Aces=2, rest=1</p>
+            <p><strong>Goal:</strong> Avoid reaching 12 points. Last card attack can knock players out.</p>
+            <p><strong>Play:</strong> Follow calling card suit if you have it, otherwise any card.</p>
+            <p><strong>Fouls (2 points):</strong> Playing out of turn, wrong cards, not following suit when able.</p>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
