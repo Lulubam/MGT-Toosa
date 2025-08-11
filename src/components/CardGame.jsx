@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const CardGame = () => {
   // Game state
@@ -372,16 +372,21 @@ const CardGame = () => {
     return (
       <div
         onClick={!disabled ? onClick : undefined}
-        className="relative w-16 h-24 rounded-lg border-2 border-gray-400 bg-white shadow-lg cursor-pointer transform transition-all duration-200 hover:scale-105 hover:shadow-xl"
+        className={`relative w-16 h-24 rounded-lg border-2 border-gray-400 bg-white shadow-lg cursor-pointer transform transition-all duration-200 ${!disabled ? 'hover:scale-105 hover:shadow-xl' : ''}`}
       >
+        {/* Top Left Corner */}
         <div className="absolute top-1 left-1 text-xs font-bold" style={{ color }}>
-          {card.rank}<br /><span className="text-xs">{card.suit}</span>
+          {card.suit}
         </div>
+        
+        {/* Center Suit */}
         <div className="absolute inset-0 flex items-center justify-center text-3xl font-bold" style={{ color }}>
           {card.suit}
         </div>
+        
+        {/* Bottom Right Corner (rotated) */}
         <div className="absolute bottom-1 right-1 text-xs font-bold transform rotate-180" style={{ color }}>
-          {card.rank}<br /><span className="text-xs transform rotate-180">{card.suit}</span>
+          {card.suit}
         </div>
       </div>
     );
@@ -577,6 +582,17 @@ const CardGame = () => {
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
                 Start Manual Dealing
+              </button>
+            )}
+
+            {/* This is the new button for dealing single cards */}
+            {dealerChoice && manualDealing && (
+              <button
+                onClick={() => dealSingleCard()}
+                className="px-6 py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 flex items-center gap-2 mt-4"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
+                Deal Card to {players[currentDealPlayer]?.name}
               </button>
             )}
           </div>
