@@ -1,10 +1,26 @@
+/* DEBUG: This confirms the CSS file is loading */
+.table-container::before {
+  content: " ";
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 12px;
+  height: 12px;
+  background-color: limegreen;
+  border-radius: 50%;
+  z-index: 100;
+  pointer-events: none;
+  box-shadow: 0 0 10px white;
+}
+
+/* Main Table Container */
 .table-container {
   position: relative;
   width: 100%;
   height: calc(100vh - 150px);
-  background: radial-gradient(circle, rgba(46, 139, 87, 0.8) 0%, rgba(22, 66, 42, 0.8) 100%);
+  background: radial-gradient(ellipse at center, #2e8b57 0%, #1a5d33 70%, #0d3b2a 100%);
   border-radius: 1.5rem;
-  box-shadow: inset 0 0 50px rgba(0,0,0,0.5);
+  box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.6), 0 0 10px rgba(0, 0, 0, 0.2);
   display: grid;
   grid-template-areas:
     "top-left top top-right"
@@ -13,8 +29,10 @@
   grid-template-columns: 1fr 2fr 1fr;
   grid-template-rows: 1fr 2fr 1fr;
   padding: 1rem;
+  overflow: hidden;
 }
 
+/* Player Areas - Positioning */
 .player-area {
   display: flex;
   flex-direction: column;
@@ -28,37 +46,114 @@
 .player-area.top { grid-area: top; transform: rotate(180deg); }
 .player-area.right { grid-area: right; transform: rotate(-90deg); }
 
-/* Fix inner content rotation */
+/* Fix text rotation inside rotated areas */
 .player-area.left .player-info,
 .player-area.right .player-info {
   transform: rotate(-90deg);
+  transform-origin: center;
   white-space: nowrap;
-}
-.player-area.top .player-info {
-  transform: rotate(180deg);
+  text-align: center;
 }
 
+.player-area.top .player-info {
+  transform: rotate(180deg);
+  transform-origin: center;
+  text-align: center;
+}
+
+/* Ensure content stays readable */
+.player-info {
+  margin-bottom: 0.5rem;
+  text-align: center;
+  z-index: 10;
+  pointer-events: none;
+  color: white;
+  font-family: sans-serif;
+}
+
+/* Current Player Highlight */
+.current-turn-glow {
+  outline: 2px solid #ffeb3b;
+  outline-offset: 4px;
+  border-radius: 0.75rem;
+  transition: all 0.3s ease;
+}
+
+/* Center Area - Played & Flushed Cards */
 .center-area {
   grid-area: center;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 2rem;
+  gap: 1.5rem;
+  z-index: 5;
 }
 
-.current-turn-glow {
-  outline: 2px solid #ffeb3b;
-  border-radius: 0.75rem;
-  transition: all 0.3s ease;
-}
-
-.flushed-cards, .round-cards {
-  background-color: rgba(0,0,0,0.2);
+.flushed-cards,
+.round-cards {
+  background-color: rgba(0, 0, 0, 0.2);
   padding: 1rem;
   border-radius: 1rem;
-  border: 1px solid rgba(255,255,255,0.1);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
   text-align: center;
   max-width: 80%;
+  color: white;
+  font-family: sans-serif;
+}
+
+.flushed-cards h3,
+.round-cards h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+/* Fallback styles in case Tailwind isn't set up */
+.w-16 { width: 4rem !important; }
+.h-24 { height: 6rem !important; }
+.max-w-7xl { max-width: 80rem; margin-left: auto; margin-right: auto; }
+.rounded-lg { border-radius: 0.5rem !important; }
+.border-2 { border: 2px solid #e5e7eb !important; }
+.bg-white { background-color: white !important; }
+.shadow-lg { box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important; }
+.overflow-hidden { overflow: hidden !important; }
+.flex { display: flex !important; }
+.items-center { align-items: center !important; }
+.justify-center { justify-content: center !important; }
+.gap-2 { gap: 0.5rem !important; }
+.gap-4 { gap: 1rem !important; }
+.text-sm { font-size: 0.875rem !important; }
+.font-bold { font-weight: bold !important; }
+
+/* Ensure cards don't stretch */
+.player-hand {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* Responsive: Shrink on small screens */
+@media (max-width: 768px) {
+  .table-container {
+    height: calc(100vh - 100px);
+    padding: 0.5rem;
+  }
+
+  .center-area {
+    gap: 1rem;
+  }
+
+  .flushed-cards,
+  .round-cards {
+    padding: 0.75rem;
+    font-size: 0.9rem;
+  }
+
+  .w-16, .h-24 {
+    width: 3.5rem !important;
+    height: 5.25rem !important;
+  }
 }
