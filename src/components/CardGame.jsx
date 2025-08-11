@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Shuffle, Play, AlertCircle, Crown, Target, Trophy, Settings, Eye, EyeOff } from 'lucide-react';
 import '../styles/ToosaApp.css';
-
 const CardGame = () => {
   // Game state
   const [gameState, setGameState] = useState('setup'); // setup, dealing, playing, round-end
