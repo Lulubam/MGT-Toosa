@@ -1,7 +1,7 @@
 .table-container {
   position: relative;
   width: 100%;
-  height: calc(100vh - 150px); /* Adjust based on your header height */
+  height: calc(100vh - 150px);
   background: radial-gradient(circle, rgba(46, 139, 87, 0.8) 0%, rgba(22, 66, 42, 0.8) 100%);
   border-radius: 1.5rem;
   box-shadow: inset 0 0 50px rgba(0,0,0,0.5);
@@ -21,41 +21,20 @@
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  position: relative;
 }
 
 .player-area.bottom { grid-area: bottom; }
-.player-area.left { 
-  grid-area: left; 
-  transform: rotate(90deg);
-}
-.player-area.top { 
-  grid-area: top;
-  transform: rotate(180deg);
-}
-.player-area.right { 
-  grid-area: right;
-  transform: rotate(-90deg);
-}
+.player-area.left { grid-area: left; transform: rotate(90deg); }
+.player-area.top { grid-area: top; transform: rotate(180deg); }
+.player-area.right { grid-area: right; transform: rotate(-90deg); }
 
-/* Fix rotated text and cards */
+/* Fix inner content rotation */
 .player-area.left .player-info,
 .player-area.right .player-info {
   transform: rotate(-90deg);
   white-space: nowrap;
 }
-
 .player-area.top .player-info {
-  transform: rotate(180deg);
-}
-
-.player-area.left .player-hand,
-.player-area.right .player-hand,
-.player-area.top .player-hand {
-  transform: rotate(90deg);
-}
-
-.player-area.top .player-hand {
   transform: rotate(180deg);
 }
 
@@ -69,22 +48,9 @@
 }
 
 .current-turn-glow {
-  box-shadow: 0 0 15px 5px #ffeb3b, inset 0 0 10px 2px #ffeb3b;
-  border-radius: 1rem;
-  transition: all 0.3s ease-in-out;
-}
-
-.player-info {
-  margin-bottom: 0.5rem;
-  text-align: center;
-}
-
-.player-hand {
-  display: flex;
-  gap: 0.5rem;
-  transition: all 0.3s ease-in-out;
-  padding: 0.5rem;
-  border-radius: 0.5rem;
+  outline: 2px solid #ffeb3b;
+  border-radius: 0.75rem;
+  transition: all 0.3s ease;
 }
 
 .flushed-cards, .round-cards {
@@ -94,4 +60,5 @@
   border: 1px solid rgba(255,255,255,0.1);
   box-shadow: 0 4px 10px rgba(0,0,0,0.3);
   text-align: center;
+  max-width: 80%;
 }
