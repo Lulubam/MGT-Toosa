@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Shuffle, Play, AlertCircle, Crown, Target, Trophy, Settings, Eye, EyeOff } from 'lucide-react';
-import './CardGame.css'; // We'll create this CSS file for the layout
+import './CardGame.css';
 
 const CardGame = () => {
   // Game state
@@ -21,7 +21,7 @@ const CardGame = () => {
   const [roundCards, setRoundCards] = useState([]);
   const [message, setMessage] = useState('Welcome! Set up the game to begin.');
   const [flushedCards, setFlushedCards] = useState([]);
-  const [selectedPlayer, setSelectedPlayer] = useState(0); // For viewing specific player's cards
+  const [selectedPlayer, setSelectedPlayer] = useState(0);
 
   // Enhanced UI states
   const [showAllCards, setShowAllCards] = useState(false);
@@ -29,15 +29,15 @@ const CardGame = () => {
   const [roomCode, setRoomCode] = useState('');
   const [isOnlineMode, setIsOnlineMode] = useState(false);
 
-  // Dealing states - Enhanced for proper two-round dealing
+  // Dealing states
   const [manualDealing, setManualDealing] = useState(false);
   const [currentDealPlayer, setCurrentDealPlayer] = useState(0);
-  const [dealRound, setDealRound] = useState(0); // 0-1 for two dealing rounds
+  const [dealRound, setDealRound] = useState(0);
   const [dealingToPlayer, setDealingToPlayer] = useState(null);
-  const [cardsPerRound, setCardsPerRound] = useState([3, 2]); // First round: 3 cards, Second round: 2 cards
+  const [cardsPerRound, setCardsPerRound] = useState([3, 2]);
   const [currentRoundCardCount, setCurrentRoundCardCount] = useState(0);
-  
-  // Game history and player view
+
+  // Game history
   const [gameHistory, setGameHistory] = useState([]);
   const [dealerSelectionPhase, setDealerSelectionPhase] = useState(true);
   const [dealerSelectionCards, setDealerSelectionCards] = useState([]);
@@ -94,25 +94,24 @@ const CardGame = () => {
     const newDeck = createDeck();
     setDeck(newDeck);
     setDealerSelectionPhase(true);
-    
-    // Each player draws a card to determine dealer
+
     const selectionCards = [];
     const newPlayers = [...players];
-    
+
     for (let i = 0; i < players.length; i++) {
       selectionCards.push({
         playerId: i,
         card: newDeck[i]
       });
     }
-    
+
     setDealerSelectionCards(selectionCards);
     setMessage('Each player has drawn a card. Click "Determine Dealer" to see who deals first.');
   };
 
   const determineDealerFromCards = (useHighest = true) => {
     let dealerCard = dealerSelectionCards[0];
-    
+
     for (let selection of dealerSelectionCards) {
       if (useHighest) {
         if (getCardNumber(selection.card.rank) > getCardNumber(dealerCard.card.rank)) {
@@ -124,7 +123,7 @@ const CardGame = () => {
         }
       }
     }
-    
+
     const newPlayers = [...players];
     newPlayers.forEach(p => p.isDealer = false);
     newPlayers[dealerCard.playerId].isDealer = true;
@@ -137,12 +136,10 @@ const CardGame = () => {
 
   const dealCards = () => {
     if (!dealerChoice) return;
-    
+
     let cardIndex = 0;
-    const newPlayers = [...players];
     const newFlushedCards = [];
-    
-    // Handle flush cards if chosen
+
     if (dealerChoice === 'flush') {
       for (let i = 0; i < flushCount; i++) {
         newFlushedCards.push(deck[cardIndex]);
@@ -150,13 +147,12 @@ const CardGame = () => {
       }
       setFlushedCards(newFlushedCards);
     }
-    
-    // Start manual dealing - dealer deals to next player first
+
     const dealerIndex = players.findIndex(p => p.isDealer);
-    const firstPlayerToDeal = direction === 'clockwise' ? 
-      (dealerIndex + 1) % players.length : 
-      (dealerIndex - 1 + players.length) % players.length;
-    
+    const firstPlayerToDeal = direction === 'clockwise'
+      ? (dealerIndex + 1) % players.length
+      : (dealerIndex - 1 + players.length) % players.length;
+
     setManualDealing(true);
     setCurrentDealPlayer(firstPlayerToDeal);
     setDealRound(0);
@@ -167,92 +163,65 @@ const CardGame = () => {
 
   const dealSingleCard = (targetPlayerId = null) => {
     if (!manualDealing || deck.length === 0) return;
-    
+
     const newPlayers = [...players];
-    let playerToReceive;
-    
-    if (targetPlayerId !== null) {
-      // Manual selection - check for dealing foul
-      if (targetPlayerId !== currentDealPlayer) {
-        // Dealing foul - wrong player
-        const dealerIndex = players.findIndex(p => p.isDealer);
-        applyFoul(dealerIndex, "Dealing cards to wrong player!");
-      }
-      playerToReceive = targetPlayerId;
-    } else {
-      // Automatic dealing
-      playerToReceive = currentDealPlayer;
+    let playerToReceive = targetPlayerId !== null ? targetPlayerId : currentDealPlayer;
+
+    if (targetPlayerId !== null && targetPlayerId !== currentDealPlayer) {
+      const dealerIndex = players.findIndex(p => p.isDealer);
+      applyFoul(dealerIndex, "Dealing cards to wrong player!");
     }
-    
-    // Deal card to selected player
+
     newPlayers[playerToReceive].cards.push(deck[0]);
     setPlayers(newPlayers);
     setDeck(deck.slice(1));
-    setDealingToPlayer(null);
-    
-    // Move to next player in dealing order
-    let nextPlayer;
+
+    let nextPlayer = currentDealPlayer;
     let nextRound = dealRound;
     let nextCardCount = currentRoundCardCount + 1;
-    
-    const activePlayers = players.filter(p => !p.optedOut);
-    
-    // Check if current player has received all cards for this round
+
     if (nextCardCount >= cardsPerRound[dealRound]) {
-      // Move to next player
-      nextPlayer = direction === 'clockwise' ? 
-        (currentDealPlayer + 1) % players.length : 
-        (currentDealPlayer - 1 + players.length) % players.length;
-      
-      // Skip opted out players
+      nextPlayer = direction === 'clockwise'
+        ? (currentDealPlayer + 1) % players.length
+        : (currentDealPlayer - 1 + players.length) % players.length;
+
       while (players[nextPlayer].optedOut && nextPlayer !== players.findIndex(p => p.isDealer)) {
-        nextPlayer = direction === 'clockwise' ? 
-          (nextPlayer + 1) % players.length : 
-          (nextPlayer - 1 + players.length) % players.length;
+        nextPlayer = direction === 'clockwise'
+          ? (nextPlayer + 1) % players.length
+          : (nextPlayer - 1 + players.length) % players.length;
       }
-      
+
       nextCardCount = 0;
-      
-      // Check if we've dealt to all players in this round (including dealer)
+
       const dealerIndex = players.findIndex(p => p.isDealer);
       if (nextPlayer === dealerIndex && currentDealPlayer !== dealerIndex) {
-        // We're about to deal to dealer, but haven't dealt to them yet in this round
-        // Continue with dealer
+        // continue
       } else if (currentDealPlayer === dealerIndex) {
-        // We just finished dealing to the dealer, move to next round
         nextRound++;
         if (nextRound < cardsPerRound.length) {
-          // Start next round with the player next to dealer
-          nextPlayer = direction === 'clockwise' ? 
-            (dealerIndex + 1) % players.length : 
-            (dealerIndex - 1 + players.length) % players.length;
-          
+          nextPlayer = direction === 'clockwise'
+            ? (dealerIndex + 1) % players.length
+            : (dealerIndex - 1 + players.length) % players.length;
           while (players[nextPlayer].optedOut) {
-            nextPlayer = direction === 'clockwise' ? 
-              (nextPlayer + 1) % players.length : 
-              (nextPlayer - 1 + players.length) % players.length;
+            nextPlayer = direction === 'clockwise'
+              ? (nextPlayer + 1) % players.length
+              : (nextPlayer - 1 + players.length) % players.length;
           }
         }
       }
-    } else {
-      nextPlayer = currentDealPlayer;
     }
-    
+
     setCurrentDealPlayer(nextPlayer);
     setDealRound(nextRound);
     setCurrentRoundCardCount(nextCardCount);
-    
-    // Check if dealing is complete
+
     if (nextRound >= cardsPerRound.length) {
       setManualDealing(false);
       setGameState('playing');
-      
-      // Set first player to play (next to dealer)
       const dealerIndex = players.findIndex(p => p.isDealer);
-      const firstPlayer = direction === 'clockwise' ? 
-        (dealerIndex + 1) % players.length : 
-        (dealerIndex - 1 + players.length) % players.length;
-      
+      const firstPlayer = direction === 'clockwise'
+        ? (dealerIndex + 1) % players.length
+        : (dealerIndex - 1 + players.length) % players.length;
       setCurrentPlayer(firstPlayer);
       setMessage(`Cards dealt! ${players[firstPlayer].name} starts the round by playing the calling card.`);
     } else {
@@ -262,11 +231,10 @@ const CardGame = () => {
 
   const playCard = (playerId, cardIndex) => {
     if (playerId !== currentPlayer || players[playerId].optedOut) return;
-    
+
     const player = players[playerId];
     const card = player.cards[cardIndex];
-    
-    // Validate play
+
     if (callingCard && card.suit !== callingCard.suit) {
       const hasCallingCardSuit = player.cards.some(c => c.suit === callingCard.suit);
       if (hasCallingCardSuit) {
@@ -274,61 +242,50 @@ const CardGame = () => {
         return;
       }
     }
-    
-    // Play the card
+
     const newPlayers = [...players];
     const playedCard = newPlayers[playerId].cards.splice(cardIndex, 1)[0];
-    
     const newRoundCards = [...roundCards, { card: playedCard, playerId }];
+
     setRoundCards(newRoundCards);
-    
-    // Set calling card if first card of round
-    if (!callingCard) {
-      setCallingCard(playedCard);
-    }
-    
+    if (!callingCard) setCallingCard(playedCard);
     setPlayers(newPlayers);
-    
-    // Move to next player
-    let nextPlayer = direction === 'clockwise' ? 
-      (currentPlayer + 1) % players.length : 
-      (currentPlayer - 1 + players.length) % players.length;
-    
-    // Skip opted out players
+
+    let nextPlayer = direction === 'clockwise'
+      ? (currentPlayer + 1) % players.length
+      : (currentPlayer - 1 + players.length) % players.length;
+
     while (players[nextPlayer].optedOut && newRoundCards.length < players.filter(p => !p.optedOut).length) {
-      nextPlayer = direction === 'clockwise' ? 
-        (nextPlayer + 1) % players.length : 
-        (nextPlayer - 1 + players.length) % players.length;
+      nextPlayer = direction === 'clockwise'
+        ? (nextPlayer + 1) % players.length
+        : (nextPlayer - 1 + players.length) % players.length;
     }
-    
+
     setCurrentPlayer(nextPlayer);
-    
-    // Check if round is complete
+
     if (newRoundCards.length === players.filter(p => !p.optedOut).length) {
       endRound(newRoundCards);
     }
   };
 
   const endRound = (roundCards) => {
-    // Find winner (highest number of calling card suit)
     const callingCardSuit = callingCard.suit;
     const callingCardPlays = roundCards.filter(rc => rc.card.suit === callingCardSuit);
-    
+
     let winner;
     if (callingCardPlays.length > 0) {
-      winner = callingCardPlays.reduce((prev, current) => 
+      winner = callingCardPlays.reduce((prev, current) =>
         getCardNumber(current.card.rank) > getCardNumber(prev.card.rank) ? current : prev
       );
     } else {
-      winner = roundCards[0]; // First player if no calling card suit played
+      winner = roundCards[0];
     }
-    
+
     setCurrentPlayer(winner.playerId);
-    
-    // Check if this was the last round (all active players have 0 cards)
+
     const activePlayers = players.filter(p => !p.optedOut);
     const allCardsPlayed = activePlayers.every(p => p.cards.length === 0);
-    
+
     if (allCardsPlayed) {
       handleEndOfRound(winner, roundCards);
     } else {
@@ -339,7 +296,6 @@ const CardGame = () => {
   };
 
   const handleEndOfRound = (winner, roundCards) => {
-    // Add this round to history
     const roundHistory = {
       roundNumber: gameHistory.length + 1,
       cards: roundCards.map(rc => ({
@@ -349,29 +305,24 @@ const CardGame = () => {
       winner: players[winner.playerId].name,
       winningCard: winner.card
     };
-    
     setGameHistory(prev => [...prev, roundHistory]);
-    
-    // This is the end of the round - all players have played all their cards
+
     const attackCard = winner.card;
     const attackValue = attackCard.value;
-    
-    let nextPlayerId = direction === 'clockwise' ? 
-      (winner.playerId + 1) % players.length : 
-      (winner.playerId - 1 + players.length) % players.length;
-    
-    // Skip opted out players for targeting
+
+    let nextPlayerId = direction === 'clockwise'
+      ? (winner.playerId + 1) % players.length
+      : (winner.playerId - 1 + players.length) % players.length;
+
     while (players[nextPlayerId].optedOut) {
-      nextPlayerId = direction === 'clockwise' ? 
-        (nextPlayerId + 1) % players.length : 
-        (nextPlayerId - 1 + players.length) % players.length;
+      nextPlayerId = direction === 'clockwise'
+        ? (nextPlayerId + 1) % players.length
+        : (nextPlayerId - 1 + players.length) % players.length;
     }
-    
-    // Apply damage to the next player
+
     const newPlayers = [...players];
     newPlayers[nextPlayerId].points += attackValue;
-    
-    // Award rings for perfect games
+
     if (newPlayers[winner.playerId].points === 0) {
       const activePlayers = newPlayers.filter(p => !p.optedOut);
       if (activePlayers.length === 2) {
@@ -382,25 +333,22 @@ const CardGame = () => {
         setMessage(`🥇 GOLD RING! ${newPlayers[winner.playerId].name} wins with 0 points!`);
       }
     }
-    
+
     if (newPlayers[nextPlayerId].points >= 12) {
       newPlayers[nextPlayerId].optedOut = true;
       setMessage(`Round over! ${newPlayers[nextPlayerId].name} is knocked out with ${newPlayers[nextPlayerId].points} points! ${newPlayers[winner.playerId].name} deals next round.`);
     } else {
       setMessage(`Round over! ${newPlayers[nextPlayerId].name} takes ${attackValue} damage (${newPlayers[nextPlayerId].points} total points). ${newPlayers[winner.playerId].name} deals next round.`);
     }
-    
-    // Set new dealer
+
     newPlayers.forEach(p => p.isDealer = false);
     newPlayers[winner.playerId].isDealer = true;
-    
     setPlayers(newPlayers);
-    
-    // Reset round state
+
     setCallingCard(null);
     setRoundCards([]);
-    
-    // Check game end
+    setFlushedCards([]);
+
     const activePlayers = newPlayers.filter(p => !p.optedOut);
     if (activePlayers.length <= 1) {
       setGameState('game-end');
@@ -411,7 +359,6 @@ const CardGame = () => {
   };
 
   const startNewRound = () => {
-    // Reset for new round
     const newDeck = createDeck();
     setDeck(newDeck);
     setGameState('dealing');
@@ -423,16 +370,13 @@ const CardGame = () => {
     setCurrentDealPlayer(0);
     setDealRound(0);
     setCurrentRoundCardCount(0);
-    setDealingToPlayer(null);
-    
+
     const newPlayers = [...players];
     newPlayers.forEach(player => {
-      if (!player.optedOut) {
-        player.cards = [];
-      }
+      if (!player.optedOut) player.cards = [];
     });
     setPlayers(newPlayers);
-    
+
     const dealerIndex = players.findIndex(p => p.isDealer);
     setCurrentPlayer(dealerIndex);
   };
@@ -451,68 +395,47 @@ const CardGame = () => {
     setMessage(`${newPlayers[playerId].name} has opted out of the game.`);
   };
 
-  // Enhanced Card Component with realistic styling
+  // === Card Components ===
   const Card = ({ card, onClick, disabled = false, className = "" }) => {
     const isRed = card.suit === '♥' || card.suit === '♦';
-    
+    const textColor = isRed ? 'text-red-600' : 'text-gray-800';
+
     return (
       <div
         onClick={!disabled ? onClick : undefined}
         className={`
-          relative w-16 h-24 rounded-lg shadow-lg border border-gray-300 
-          cursor-pointer transform transition-all duration-200 
-          ${!disabled ? 'hover:scale-105 hover:shadow-xl hover:-translate-y-1' : 'opacity-50 cursor-not-allowed'}
+          relative w-16 h-24 rounded-lg border-2 border-gray-400 bg-white
+          shadow-lg cursor-pointer transform transition-all duration-200
+          hover:scale-105 hover:shadow-xl hover:-translate-y-1
+          ${disabled ? 'opacity-60 cursor-not-allowed' : 'hover:shadow-2xl'}
+          overflow-hidden
           ${className}
         `}
-        style={{
-          background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
-          boxShadow: disabled ? 'none' : '0 4px 12px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.8)',
-          color: isRed ? '#dc2626' : '#000000'
-        }}
       >
-        {/* Corner values */}
-        <div 
-          className="absolute top-1 left-1 text-xs font-bold"
-          style={{ color: isRed ? '#dc2626' : '#000000' }}
-        >
+        {/* Top Left */}
+        <div className={`absolute top-1 left-1 text-xs font-bold ${textColor}`}>
           {card.rank}
+          <div className={`text-xs ${textColor}`}>{card.suit}</div>
         </div>
-        <div 
-          className="absolute top-3 left-1 text-xs"
-          style={{ color: isRed ? '#dc2626' : '#000000' }}
-        >
+
+        {/* Center Suit */}
+        <div className={`absolute inset-0 flex items-center justify-center text-3xl font-bold ${textColor} opacity-80 pointer-events-none`}>
           {card.suit}
         </div>
-        
-        {/* Center suit */}
-        <div 
-          className="absolute inset-0 flex items-center justify-center text-2xl font-bold"
-          style={{ color: isRed ? '#dc2626' : '#000000' }}
-        >
-          {card.suit}
-        </div>
-        
-        {/* Bottom corner (rotated) */}
-        <div 
-          className="absolute bottom-1 right-1 text-xs font-bold transform rotate-180"
-          style={{ color: isRed ? '#dc2626' : '#000000' }}
-        >
+
+        {/* Bottom Right (rotated) */}
+        <div className={`absolute bottom-1 right-1 text-xs font-bold transform rotate-180 ${textColor}`}>
           {card.rank}
-        </div>
-        <div 
-          className="absolute bottom-3 right-1 text-xs transform rotate-180"
-          style={{ color: isRed ? '#dc2626' : '#000000' }}
-        >
-          {card.suit}
+          <div className={`text-xs transform rotate-180 ${textColor}`}>{card.suit}</div>
         </div>
       </div>
     );
   };
 
   const CardBack = ({ className = "" }) => (
-    <div className={`w-16 h-24 bg-gradient-to-br from-blue-800 to-blue-900 rounded-lg shadow-lg border-2 border-blue-700 ${className}`}>
-      <div className="w-full h-full flex items-center justify-center text-white opacity-30">
-        <div className="text-2xl">🂠</div>
+    <div className={`w-16 h-24 rounded-lg bg-gradient-to-br from-blue-800 to-blue-900 border-2 border-blue-700 shadow-lg ${className}`}>
+      <div className="w-full h-full flex items-center justify-center">
+        <span className="text-white text-xs font-bold tracking-wider">BACK</span>
       </div>
     </div>
   );
@@ -520,7 +443,7 @@ const CardGame = () => {
   const PlayerHand = ({ player, localPlayerId, playCard, currentPlayer, showAllCards }) => {
     const isLocalPlayer = player.id === localPlayerId;
     const isTurn = player.id - 1 === currentPlayer;
-  
+
     return (
       <div className={`player-hand ${isTurn ? 'current-turn-glow' : ''}`}>
         <div className="player-info">
@@ -529,8 +452,8 @@ const CardGame = () => {
           </h4>
           <p className="text-sm text-yellow-300">Points: {player.points} - Gold: {player.rings.gold}, Platinum: {player.rings.platinum}</p>
         </div>
-  
-        <div className="flex gap-2 justify-center">
+
+        <div className="flex gap-2 justify-center flex-wrap">
           {isLocalPlayer || showAllCards ? (
             player.cards.map((card, index) => (
               <Card
@@ -549,7 +472,6 @@ const CardGame = () => {
   };
 
   const getPlayerPositionClass = (index, numPlayers) => {
-    // This is a simple example for 4 players. You can expand it.
     const positions = ['bottom', 'left', 'top', 'right'];
     return positions[index % positions.length];
   };
@@ -572,8 +494,7 @@ const CardGame = () => {
                 <p className="text-green-100 text-sm">{message}</p>
               </div>
             </div>
-            
-            {/* Room controls */}
+
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setShowAllCards(!showAllCards)}
@@ -582,7 +503,7 @@ const CardGame = () => {
               >
                 {showAllCards ? <EyeOff className="w-5 h-5 text-white" /> : <Eye className="w-5 h-5 text-white" />}
               </button>
-              
+
               {!roomCode ? (
                 <button
                   onClick={() => setRoomCode(generateRoomCode())}
@@ -614,7 +535,7 @@ const CardGame = () => {
           </div>
         </div>
 
-        {/* Game Setup */}
+        {/* Setup */}
         {gameState === 'setup' && (
           <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 mb-6 border border-white/20">
             <h2 className="text-2xl font-bold text-white mb-6">Game Setup</h2>
@@ -622,8 +543,8 @@ const CardGame = () => {
               <div className="space-y-4">
                 <div>
                   <label className="block text-white mb-2">Game Direction</label>
-                  <select 
-                    value={direction} 
+                  <select
+                    value={direction}
                     onChange={(e) => setDirection(e.target.value)}
                     className="w-full px-4 py-2 rounded-lg bg-white/10 text-white border border-white/20"
                   >
@@ -631,8 +552,7 @@ const CardGame = () => {
                     <option value="anticlockwise">Anticlockwise</option>
                   </select>
                 </div>
-                
-                <button 
+                <button
                   onClick={initializeGame}
                   className="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 flex items-center justify-center gap-2 transition-all"
                 >
@@ -640,7 +560,6 @@ const CardGame = () => {
                   Draw Cards for Dealer
                 </button>
               </div>
-              
               <div className="bg-white/5 rounded-xl p-4">
                 <h3 className="text-white font-bold mb-2">Game Rules</h3>
                 <ul className="text-green-100 text-sm space-y-1">
@@ -655,7 +574,7 @@ const CardGame = () => {
           </div>
         )}
 
-        {/* Dealer Selection Phase */}
+        {/* Dealer Selection */}
         {dealerSelectionPhase && dealerSelectionCards.length > 0 && (
           <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 mb-6 border border-white/20">
             <h2 className="text-2xl font-bold text-white mb-4">Dealer Selection</h2>
@@ -668,13 +587,13 @@ const CardGame = () => {
               ))}
             </div>
             <div className="flex gap-4 justify-center">
-              <button 
+              <button
                 onClick={() => determineDealerFromCards(true)}
                 className="px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all"
               >
                 Highest Card Deals
               </button>
-              <button 
+              <button
                 onClick={() => determineDealerFromCards(false)}
                 className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all"
               >
@@ -689,13 +608,13 @@ const CardGame = () => {
           <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 mb-6 border border-white/20">
             <h2 className="text-2xl font-bold text-white mb-4">Dealer's Choice</h2>
             <div className="flex gap-4 mb-4">
-              <button 
+              <button
                 onClick={() => setDealerChoice('straight')}
                 className={`px-6 py-3 rounded-lg transition-all ${dealerChoice === 'straight' ? 'bg-blue-600 text-white' : 'bg-white/20 text-white hover:bg-white/30'}`}
               >
                 Serve Straight
               </button>
-              <button 
+              <button
                 onClick={() => setDealerChoice('flush')}
                 className={`px-6 py-3 rounded-lg transition-all ${dealerChoice === 'flush' ? 'bg-blue-600 text-white' : 'bg-white/20 text-white hover:bg-white/30'}`}
               >
@@ -704,10 +623,10 @@ const CardGame = () => {
               {dealerChoice === 'flush' && (
                 <div className="flex items-center gap-2">
                   <label className="text-white">Cards:</label>
-                  <input 
-                    type="number" 
-                    min="1" 
-                    max="5" 
+                  <input
+                    type="number"
+                    min="1"
+                    max="5"
                     value={flushCount}
                     onChange={(e) => setFlushCount(parseInt(e.target.value) || 3)}
                     className="w-16 px-2 py-2 rounded-lg bg-white/20 text-white text-center border border-white/20"
@@ -716,7 +635,7 @@ const CardGame = () => {
               )}
             </div>
             {dealerChoice && !manualDealing && (
-              <button 
+              <button
                 onClick={dealCards}
                 className="px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 flex items-center gap-2 transition-all"
               >
@@ -734,15 +653,15 @@ const CardGame = () => {
                     Current: {players[currentDealPlayer].name} (Card {currentRoundCardCount + 1}/{cardsPerRound[dealRound]})
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {players.filter(p => !p.optedOut).map((player, index) => (
                     <button
                       key={player.id}
                       onClick={() => setDealingToPlayer(index)}
                       className={`p-3 rounded-lg text-white transition-all ${
-                        dealingToPlayer === index 
-                          ? 'bg-yellow-600 shadow-lg' 
+                        dealingToPlayer === index
+                          ? 'bg-yellow-600 shadow-lg'
                           : player.id === players[currentDealPlayer].id
                           ? 'bg-green-600/50 border-2 border-green-400'
                           : 'bg-white/20 hover:bg-white/30'
@@ -755,16 +674,16 @@ const CardGame = () => {
                     </button>
                   ))}
                 </div>
-                
+
                 <div className="flex gap-4">
-                  <button 
+                  <button
                     onClick={() => dealSingleCard(dealingToPlayer)}
                     disabled={dealingToPlayer === null}
                     className="px-6 py-3 bg-gradient-to-r from-yellow-600 to-yellow-700 text-white rounded-lg hover:from-yellow-700 hover:to-yellow-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                   >
                     Deal Card to Selected Player
                   </button>
-                  <button 
+                  <button
                     onClick={() => dealSingleCard()}
                     className="px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all"
                   >
@@ -776,16 +695,15 @@ const CardGame = () => {
           </div>
         )}
 
-        {/* The main card game table area */}
+        {/* Table */}
         <div className="table-container">
-          {/* Renders each player's hand in their designated position */}
           {players.map((player, index) => {
             if (player.optedOut) return null;
             return (
               <div key={player.id} className={`player-area ${getPlayerPositionClass(index, players.length)}`}>
                 <PlayerHand
                   player={player}
-                  localPlayerId={players[0].id} // Assuming the first player is "you"
+                  localPlayerId={players[0].id}
                   playCard={playCard}
                   currentPlayer={currentPlayer}
                   showAllCards={showAllCards}
@@ -794,9 +712,7 @@ const CardGame = () => {
             );
           })}
 
-          {/* Center of the table for played and flushed cards */}
           <div className="center-area">
-            {/* Flushed Cards */}
             {flushedCards.length > 0 && (
               <div className="flushed-cards">
                 <h3 className="text-white font-bold mb-2">Flushed Cards</h3>
@@ -808,7 +724,6 @@ const CardGame = () => {
               </div>
             )}
 
-            {/* Current Round Played Cards */}
             {roundCards.length > 0 && (
               <div className="round-cards">
                 <h3 className="text-white font-bold mb-2">Played This Round</h3>
@@ -824,7 +739,6 @@ const CardGame = () => {
             )}
           </div>
         </div>
-
       </div>
     </div>
   );
