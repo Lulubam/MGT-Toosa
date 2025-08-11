@@ -457,40 +457,51 @@ const CardGame = () => {
       <div
         onClick={!disabled ? onClick : undefined}
         className={`
-          relative w-16 h-24 bg-white rounded-lg shadow-lg border border-gray-300 
+          relative w-16 h-24 rounded-lg shadow-lg border border-gray-300 
           cursor-pointer transform transition-all duration-200 
           ${!disabled ? 'hover:scale-105 hover:shadow-xl hover:-translate-y-1' : 'opacity-50 cursor-not-allowed'}
           ${className}
         `}
         style={{
           background: 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)',
-          boxShadow: disabled ? 'none' : '0 4px 12px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.8)'
+          boxShadow: disabled ? 'none' : '0 4px 12px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.8)',
+          color: isRed ? '#dc2626' : '#000000'
         }}
       >
         {/* Corner values */}
-        <div className={`absolute top-1 left-1 text-xs font-bold ${isRed ? 'text-red-600' : 'text-black'}`}>
+        <div 
+          className="absolute top-1 left-1 text-xs font-bold"
+          style={{ color: isRed ? '#dc2626' : '#000000' }}
+        >
           {card.rank}
         </div>
-        <div className={`absolute top-3 left-1 text-xs ${isRed ? 'text-red-600' : 'text-black'}`}>
+        <div 
+          className="absolute top-3 left-1 text-xs"
+          style={{ color: isRed ? '#dc2626' : '#000000' }}
+        >
           {card.suit}
         </div>
         
         {/* Center suit */}
-        <div className={`absolute inset-0 flex items-center justify-center text-2xl font-bold ${isRed ? 'text-red-600' : 'text-black'}`}>
+        <div 
+          className="absolute inset-0 flex items-center justify-center text-2xl font-bold"
+          style={{ color: isRed ? '#dc2626' : '#000000' }}
+        >
           {card.suit}
         </div>
         
         {/* Bottom corner (rotated) */}
-        <div className={`absolute bottom-1 right-1 text-xs font-bold transform rotate-180 ${isRed ? 'text-red-600' : 'text-black'}`}>
+        <div 
+          className="absolute bottom-1 right-1 text-xs font-bold transform rotate-180"
+          style={{ color: isRed ? '#dc2626' : '#000000' }}
+        >
           {card.rank}
         </div>
-        <div className={`absolute bottom-3 right-1 text-xs transform rotate-180 ${isRed ? 'text-red-600' : 'text-black'}`}>
+        <div 
+          className="absolute bottom-3 right-1 text-xs transform rotate-180"
+          style={{ color: isRed ? '#dc2626' : '#000000' }}
+        >
           {card.suit}
-        </div>
-        
-        {/* Attack value indicator */}
-        <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-600 text-white text-xs rounded-full flex items-center justify-center font-bold">
-          {card.value}
         </div>
       </div>
     );
@@ -532,16 +543,32 @@ const CardGame = () => {
               >
                 {showAllCards ? <EyeOff className="w-5 h-5 text-white" /> : <Eye className="w-5 h-5 text-white" />}
               </button>
-              <button
-                onClick={() => setRoomCode(generateRoomCode())}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-              >
-                <Settings className="w-4 h-4" />
-                Create Room
-              </button>
-              {roomCode && (
-                <div className="px-3 py-2 bg-white/10 rounded-lg text-white font-mono">
-                  Room: {roomCode}
+              
+              {!roomCode ? (
+                <button
+                  onClick={() => setRoomCode(generateRoomCode())}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                >
+                  <Settings className="w-4 h-4" />
+                  Create Room
+                </button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <div className="px-3 py-2 bg-white/10 rounded-lg text-white font-mono text-sm">
+                    Room: {roomCode}
+                  </div>
+                  <button
+                    onClick={() => navigator.clipboard.writeText(`Join my card game! Room code: ${roomCode}`)}
+                    className="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                  >
+                    Share
+                  </button>
+                  <button
+                    onClick={() => setRoomCode('')}
+                    className="px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+                  >
+                    Leave
+                  </button>
                 </div>
               )}
             </div>
