@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 
 const CardGame = () => {
   // Game state
@@ -364,7 +364,7 @@ const CardGame = () => {
     setCurrentPlayer(dealerIndex);
   };
 
-  // Card Component
+  // Fixed Card Component
   const Card = ({ card, onClick, disabled = false }) => {
     const isRed = card.suit === '♥' || card.suit === '♦';
     const color = isRed ? '#dc2626' : '#000000';
@@ -372,21 +372,20 @@ const CardGame = () => {
     return (
       <div
         onClick={!disabled ? onClick : undefined}
-        className={`relative w-16 h-24 rounded-lg border-2 border-gray-400 bg-white shadow-lg cursor-pointer transform transition-all duration-200 ${!disabled ? 'hover:scale-105 hover:shadow-xl' : ''}`}
+        className={`relative w-16 h-24 rounded-lg border-2 border-gray-400 bg-white shadow-lg ${!disabled ? 'cursor-pointer transform transition-all duration-200 hover:scale-105 hover:shadow-xl' : ''}`}
       >
-        {/* Top Left Corner */}
         <div className="absolute top-1 left-1 text-xs font-bold" style={{ color }}>
+          {card.rank}
+          <br />
+          <span className="text-sm">{card.suit}</span>
+        </div>
+        <div className="absolute inset-0 flex items-center justify-center text-2xl font-bold" style={{ color }}>
           {card.suit}
         </div>
-        
-        {/* Center Suit */}
-        <div className="absolute inset-0 flex items-center justify-center text-3xl font-bold" style={{ color }}>
-          {card.suit}
-        </div>
-        
-        {/* Bottom Right Corner (rotated) */}
         <div className="absolute bottom-1 right-1 text-xs font-bold transform rotate-180" style={{ color }}>
-          {card.suit}
+          {card.rank}
+          <br />
+          <span className="text-sm transform rotate-180">{card.suit}</span>
         </div>
       </div>
     );
@@ -401,17 +400,29 @@ const CardGame = () => {
   const PlayerHand = ({ player, playCard, currentPlayer }) => {
     const isTurn = player.id - 1 === currentPlayer;
     return (
-      <div className={`player-hand ${isTurn ? 'current-turn-glow' : ''}`}>
-        <div className="player-info">
-          <h4 className="font-bold text-white">
-            {player.name} {player.isDealer && '👑'}
+      <div className={`p-4 rounded-lg border-2 ${isTurn ? 'border-yellow-400 bg-yellow-400/20' : 'border-white/30 bg-white/10'} backdrop-blur-sm`}>
+        <div className="mb-2">
+          <h4 className="font-bold text-white flex items-center gap-2">
+            {player.name} 
+            {player.isDealer && <span className="text-yellow-400">👑</span>}
+            {isTurn && <span className="text-green-400">▶</span>}
           </h4>
           <p className="text-sm text-yellow-300">Points: {player.points}</p>
+          {(player.rings.gold > 0 || player.rings.platinum > 0) && (
+            <p className="text-xs text-yellow-200">
+              🥇{player.rings.gold} 🏆{player.rings.platinum}
+            </p>
+          )}
         </div>
-        <div className="flex gap-1">
+        <div className="flex gap-1 flex-wrap">
           {showAllCards || player.id === 1
             ? player.cards.map((card, i) => (
-                <Card key={i} card={card} onClick={() => isTurn && playCard(player.id - 1, i)} disabled={!isTurn} />
+                <Card 
+                  key={i} 
+                  card={card} 
+                  onClick={() => isTurn && playCard(player.id - 1, i)} 
+                  disabled={!isTurn} 
+                />
               ))
             : player.cards.map((_, i) => <CardBack key={i} />)
           }
@@ -426,7 +437,7 @@ const CardGame = () => {
 
         {/* Header */}
         <div className="bg-gradient-to-r from-green-700/80 to-green-800/80 backdrop-blur-md rounded-2xl p-6 mb-6 border border-green-600/30 shadow-2xl">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
               <div className="relative">
                 <div className="w-12 h-12 bg-white rounded-xl border-2 border-gray-300 flex items-center justify-center shadow-lg">
@@ -440,21 +451,20 @@ const CardGame = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <button
                 onClick={() => setShowAllCards(!showAllCards)}
                 className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors"
                 title={showAllCards ? "Hide all cards" : "Show all cards (Debug)"}
               >
-                {showAllCards ? <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg> : <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.028m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>}
+                {showAllCards ? '👁️' : '👁️‍🗨️'}
               </button>
 
               {!roomCode ? (
                 <button
                   onClick={() => setRoomCode(generateRoomCode())}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                   Create Room
                 </button>
               ) : (
@@ -501,17 +511,17 @@ const CardGame = () => {
                   onClick={initializeGame}
                   className="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 flex items-center justify-center gap-2 transition-all"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.5a2.5 2.5 0 010 5H9v-5z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                  Draw Cards for Dealer
+                  🎴 Draw Cards for Dealer
                 </button>
               </div>
               <div className="bg-white/5 rounded-xl p-4">
                 <h3 className="text-white font-bold mb-2">Game Rules</h3>
                 <ul className="text-green-100 text-sm space-y-1">
                   <li>• Deck: No 2s, J, Q, K, Jokers</li>
-                  <li>• Dealing: 3 then 2 cards</li>
+                  <li>• Dealing: 3 then 2 cards per player</li>
                   <li>• Follow suit if possible</li>
                   <li>• 12+ points = knocked out</li>
+                  <li>• Win with 0 points for rings</li>
                 </ul>
               </div>
             </div>
@@ -530,7 +540,7 @@ const CardGame = () => {
                 </div>
               ))}
             </div>
-            <div className="flex gap-4 justify-center">
+            <div className="flex gap-4 justify-center flex-wrap">
               <button
                 onClick={() => determineDealerFromCards(true)}
                 className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700"
@@ -551,89 +561,200 @@ const CardGame = () => {
         {gameState === 'dealing' && (
           <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 mb-6 border border-white/20">
             <h2 className="text-2xl font-bold text-white mb-4">Dealer's Choice</h2>
-            <div className="flex gap-4 mb-4">
-              <button
-                onClick={() => setDealerChoice('straight')}
-                className={`px-6 py-3 rounded-lg ${dealerChoice === 'straight' ? 'bg-blue-600 text-white' : 'bg-white/20 text-white'}`}
-              >
-                Serve Straight
-              </button>
-              <button
-                onClick={() => setDealerChoice('flush')}
-                className={`px-6 py-3 rounded-lg ${dealerChoice === 'flush' ? 'bg-blue-600 text-white' : 'bg-white/20 text-white'}`}
-              >
-                Flush Cards
-              </button>
-              {dealerChoice === 'flush' && (
-                <input
-                  type="number"
-                  min="1"
-                  max="5"
-                  value={flushCount}
-                  onChange={(e) => setFlushCount(e.target.value)}
-                  className="w-16 px-2 py-2 bg-white/20 text-white text-center border border-white/20"
-                />
-              )}
-            </div>
-            {dealerChoice && !manualDealing && (
-              <button
-                onClick={dealCards}
-                className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                Start Manual Dealing
-              </button>
+            
+            {!manualDealing && (
+              <div className="space-y-4">
+                <div className="flex gap-4 flex-wrap">
+                  <button
+                    onClick={() => setDealerChoice('straight')}
+                    className={`px-6 py-3 rounded-lg transition-colors ${dealerChoice === 'straight' ? 'bg-blue-600 text-white' : 'bg-white/20 text-white hover:bg-white/30'}`}
+                  >
+                    Serve Straight
+                  </button>
+                  <button
+                    onClick={() => setDealerChoice('flush')}
+                    className={`px-6 py-3 rounded-lg transition-colors ${dealerChoice === 'flush' ? 'bg-blue-600 text-white' : 'bg-white/20 text-white hover:bg-white/30'}`}
+                  >
+                    Flush Cards
+                  </button>
+                  {dealerChoice === 'flush' && (
+                    <div className="flex items-center gap-2">
+                      <label className="text-white">Cards to flush:</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="5"
+                        value={flushCount}
+                        onChange={(e) => setFlushCount(parseInt(e.target.value) || 1)}
+                        className="w-16 px-2 py-2 bg-white/20 text-white text-center border border-white/20 rounded"
+                      />
+                    </div>
+                  )}
+                </div>
+                
+                {dealerChoice && (
+                  <button
+                    onClick={dealCards}
+                    className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                  >
+                    🎯 Start Manual Dealing
+                  </button>
+                )}
+              </div>
             )}
 
-            {/* This is the new button for dealing single cards */}
-            {dealerChoice && manualDealing && (
-              <button
-                onClick={() => dealSingleCard()}
-                className="px-6 py-3 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 flex items-center gap-2 mt-4"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" /></svg>
-                Deal Card to {players[currentDealPlayer]?.name}
-              </button>
+            {/* Manual Dealing Controls */}
+            {manualDealing && (
+              <div className="space-y-4">
+                <div className="bg-yellow-400/20 border border-yellow-400/50 rounded-lg p-4">
+                  <h3 className="text-yellow-100 font-bold mb-2">Manual Dealing in Progress</h3>
+                  <p className="text-yellow-200 text-sm mb-3">
+                    Round {dealRound + 1}/{cardsPerRound.length} - 
+                    Next card goes to: <strong>{players[currentDealPlayer].name}</strong>
+                    ({currentRoundCardCount + 1}/{cardsPerRound[dealRound]} cards this round)
+                  </p>
+                  <div className="flex gap-3 flex-wrap">
+                    <button
+                      onClick={() => dealSingleCard()}
+                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                      disabled={deck.length === 0}
+                    >
+                      🃏 Deal Card ({deck.length} left)
+                    </button>
+                    
+                    {/* Quick deal buttons for each player */}
+                    <div className="flex gap-2">
+                      {players.map((player, i) => (
+                        !player.optedOut && (
+                          <button
+                            key={i}
+                            onClick={() => dealSingleCard(i)}
+                            className={`px-3 py-2 text-xs rounded-lg transition-colors ${
+                              i === currentDealPlayer 
+                                ? 'bg-blue-600 text-white' 
+                                : 'bg-white/20 text-white hover:bg-white/30'
+                            }`}
+                          >
+                            {player.name}
+                          </button>
+                        )
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         )}
 
-        {/* Main Table */}
-        <div className="table-container">
+        {/* Game Table */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {players.map((player, i) => (
             !player.optedOut && (
-              <div key={player.id} className={`player-area ${['bottom', 'left', 'top', 'right'][i]}`}>
-                <PlayerHand player={player} playCard={playCard} currentPlayer={currentPlayer} />
-              </div>
+              <PlayerHand 
+                key={player.id} 
+                player={player} 
+                playCard={playCard} 
+                currentPlayer={currentPlayer} 
+              />
             )
           ))}
+        </div>
 
-          <div className="center-area">
+        {/* Center Area - Flushed Cards and Current Trick */}
+        <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 mb-6 border border-white/20">
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Flushed Cards */}
             {flushedCards.length > 0 && (
-              <div className="flushed-cards">
-                <h3 className="text-white text-sm">Flushed</h3>
-                <div className="flex gap-1">
-                  {flushedCards.map((c, i) => (
-                    <Card key={i} card={c} disabled={true} />
+              <div className="text-center">
+                <h3 className="text-white font-bold mb-3">Flushed Cards</h3>
+                <div className="flex gap-2 justify-center flex-wrap">
+                  {flushedCards.map((card, i) => (
+                    <Card key={i} card={card} disabled={true} />
                   ))}
                 </div>
               </div>
             )}
+
+            {/* Current Trick */}
             {roundCards.length > 0 && (
-              <div className="round-cards">
-                <h3 className="text-white text-sm">Current Trick</h3>
-                <div className="flex gap-1">
+              <div className="text-center">
+                <h3 className="text-white font-bold mb-3">
+                  Current Trick 
+                  {callingCard && <span className="text-yellow-300"> (Following {callingCard.suit})</span>}
+                </h3>
+                <div className="flex gap-2 justify-center flex-wrap">
                   {roundCards.map((rc, i) => (
                     <div key={i} className="text-center">
                       <Card card={rc.card} disabled={true} />
-                      <p className="text-xs text-green-200">{players[rc.playerId].name}</p>
+                      <p className="text-xs text-green-200 mt-1">{players[rc.playerId].name}</p>
                     </div>
                   ))}
                 </div>
               </div>
             )}
           </div>
+
+          {/* Game State Info */}
+          {gameState === 'playing' && (
+            <div className="mt-6 text-center">
+              <div className="bg-blue-600/20 rounded-lg p-4">
+                <h4 className="text-white font-bold mb-2">Game Status</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  {players.filter(p => !p.optedOut).map((player, i) => (
+                    <div key={i} className="text-center">
+                      <div className="text-white font-semibold">{player.name}</div>
+                      <div className="text-yellow-300">{player.points} pts</div>
+                      <div className="text-blue-200">{player.cards.length} cards</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* Game End */}
+        {gameState === 'game-end' && (
+          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 mb-6 border border-white/20 text-center">
+            <h2 className="text-3xl font-bold text-white mb-4">🎉 Game Over! 🎉</h2>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {players.map((player, i) => (
+                <div key={i} className="bg-white/10 rounded-lg p-4">
+                  <h4 className="text-white font-bold">{player.name}</h4>
+                  <p className="text-yellow-300">Final Points: {player.points}</p>
+                  <p className="text-blue-200">Status: {player.optedOut ? '❌ Knocked Out' : '✅ Active'}</p>
+                  {(player.rings.gold > 0 || player.rings.platinum > 0) && (
+                    <p className="text-yellow-200">🥇{player.rings.gold} 🏆{player.rings.platinum}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-6 px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
+              🔄 New Game
+            </button>
+          </div>
+        )}
+
+        {/* Debug Info */}
+        {showAllCards && (
+          <div className="bg-red-900/20 backdrop-blur-sm rounded-2xl p-4 border border-red-600/30">
+            <h3 className="text-red-200 font-bold mb-2">🔧 Debug Info</h3>
+            <div className="text-red-100 text-xs space-y-1">
+              <p>Game State: {gameState}</p>
+              <p>Current Player: {currentPlayer} ({players[currentPlayer]?.name})</p>
+              <p>Dealer: {players.findIndex(p => p.isDealer)} ({players.find(p => p.isDealer)?.name})</p>
+              <p>Manual Dealing: {manualDealing ? 'Yes' : 'No'}</p>
+              <p>Deal Round: {dealRound + 1}/{cardsPerRound.length}</p>
+              <p>Cards Left in Deck: {deck.length}</p>
+              <p>Direction: {direction}</p>
+              {callingCard && <p>Calling Card: {callingCard.rank}{callingCard.suit}</p>}
+            </div>
+          </div>
+        )}
 
       </div>
     </div>
