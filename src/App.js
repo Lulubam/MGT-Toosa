@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Shuffle, Play, AlertCircle, Crown, Target, Trophy, Settings, Eye, EyeOff } from 'lucide-react';
 
-const CardGame = () => {
+const App = () => {
   // Game state
   const [gameState, setGameState] = useState('setup'); // setup, dealing, playing, round-end
   const [players, setPlayers] = useState([
@@ -125,6 +125,7 @@ const CardGame = () => {
     }
     
     const newPlayers = [...players];
+    newPlayers.forEach(p => p.isDealer = false);
     newPlayers[dealerCard.playerId].isDealer = true;
     setPlayers(newPlayers);
     setCurrentPlayer(dealerCard.playerId);
@@ -508,12 +509,49 @@ const CardGame = () => {
   };
 
   const CardBack = ({ className = "" }) => (
-    <div className={`w-16 h-24 bg-gradient-to-br from-blue-800 to-blue-900 rounded-lg shadow-lg border border-blue-700 ${className}`}>
+    <div className={`w-16 h-24 bg-gradient-to-br from-blue-800 to-blue-900 rounded-lg shadow-lg border-2 border-blue-700 ${className}`}>
       <div className="w-full h-full flex items-center justify-center text-white opacity-30">
         <div className="text-2xl">🂠</div>
       </div>
     </div>
   );
+
+  const PlayerHand = ({ player, localPlayerId, playCard, currentPlayer, showAllCards }) => {
+    const isLocalPlayer = player.id === localPlayerId;
+    const isTurn = player.id - 1 === currentPlayer;
+  
+    return (
+      <div className={`player-hand ${isTurn ? 'current-turn-glow' : ''}`}>
+        <div className="player-info">
+          <h4 className="font-bold text-white">
+            {player.name} {player.isDealer && '👑'} {isLocalPlayer && '(You)'}
+          </h4>
+          <p className="text-sm text-yellow-300">Points: {player.points} - Gold: {player.rings.gold}, Platinum: {player.rings.platinum}</p>
+        </div>
+  
+        <div className="flex gap-2 justify-center">
+          {isLocalPlayer || showAllCards ? (
+            player.cards.map((card, index) => (
+              <Card
+                key={index}
+                card={card}
+                onClick={() => isTurn && playCard(player.id - 1, index)}
+                disabled={!isTurn}
+              />
+            ))
+          ) : (
+            player.cards.map((_, index) => <CardBack key={index} />)
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const getPlayerPositionClass = (index, numPlayers) => {
+    // This is a simple example for 4 players. You can expand it.
+    const positions = ['bottom', 'left', 'top', 'right'];
+    return positions[index % positions.length];
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-800 via-green-900 to-gray-900 p-4">
@@ -786,9 +824,9 @@ const CardGame = () => {
               <div className="flex gap-2">
                 {players.map((player, index) => (
                   <button
-                    key={player.id}
+                    key={index}
                     onClick={() => setCurrentPlayerView(index)}
-                    className={`px-3 py-2 rounded-lg text-sm transition-all ${
+                    className={`px-4 py-2 rounded-lg transition-all ${
                       currentPlayerView === index 
                         ? 'bg-blue-600 text-white shadow-lg' 
                         : 'bg-white/20 text-white hover:bg-white/30'
@@ -799,220 +837,33 @@ const CardGame = () => {
                 ))}
               </div>
             </div>
-            
-            {/* Player's Cards */}
-            {players[currentPlayerView].cards.length > 0 ? (
-              <div className="space-y-4">
-                <div className="flex gap-3 flex-wrap justify-center">
-                  {players[currentPlayerView].cards.map((card, cardIndex) => (
-                    <Card
-                      key={cardIndex}
-                      card={card}
-                      onClick={() => playCard(currentPlayerView, cardIndex)}
-                      disabled={currentPlayerView !== currentPlayer || players[currentPlayerView].optedOut}
-                      className={currentPlayerView === currentPlayer && !players[currentPlayerView].optedOut ? 'hover:scale-110' : ''}
-                    />
-                  ))}
-                </div>
-                
-                {currentPlayerView !== currentPlayer && !players[currentPlayerView].optedOut && (
-                  <div className="text-center">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-600/20 rounded-lg text-yellow-200">
-                      <AlertCircle className="w-4 h-4" />
-                      Wait for your turn to play cards
-                    </div>
-                  </div>
-                )}
-                
-                {currentPlayerView === currentPlayer && !players[currentPlayerView].optedOut && (
-                  <div className="text-center">
-                    <div className="inline-flex items-center gap-2 px-4 py-2 bg-green-600/20 rounded-lg text-green-200">
-                      <Target className="w-4 h-4" />
-                      Your turn - Select a card to play
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="text-center text-gray-400 py-8">
-                No cards in hand
-              </div>
-            )}
-          </div>
-        )}
 
-        {/* Players Status */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {players.map((player, index) => (
-            <div 
-              key={player.id} 
-              className={`
-                relative bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-sm rounded-2xl p-6 border transition-all
-                ${player.optedOut ? 'opacity-50 border-red-500/30' : 'border-white/20'}
-                ${index === currentPlayer && !player.optedOut ? 'ring-2 ring-yellow-400 shadow-lg shadow-yellow-400/20' : ''}
-              `}
-            >
-              {/* Player Header */}
-              <div className="flex items-center gap-3 mb-4">
-                <div className="relative">
-                  <Users className="w-6 h-6 text-white" />
-                  {player.isDealer && <Crown className="absolute -top-1 -right-1 w-4 h-4 text-yellow-400" />}
-                </div>
-                <div>
-                  <h3 className="font-bold text-white text-lg">{player.name}</h3>
-                  <div className="flex items-center gap-2 text-sm">
-                    {player.isDealer && <span className="text-yellow-400">Dealer</span>}
-                    {player.optedOut && <span className="text-red-400">Out</span>}
-                    {index === currentPlayer && !player.optedOut && <span className="text-green-400">Turn</span>}
-                  </div>
-                </div>
-              </div>
-              
-              {/* Stats */}
-              <div className="space-y-3 mb-4">
-                <div className="flex justify-between">
-                  <span className="text-green-100">Points:</span>
-                  <span className={`font-bold ${player.points >= 10 ? 'text-red-400' : 'text-white'}`}>
-                    {player.points}/12
-                  </span>
-                </div>
-                
-                <div className="flex justify-between">
-                  <span className="text-green-100">Cards:</span>
-                  <span className="text-white font-bold">{player.cards.length}</span>
-                </div>
-                
-                {/* Rings */}
-                {(player.rings.gold > 0 || player.rings.platinum > 0) && (
-                  <div className="flex justify-between">
-                    <span className="text-green-100">Rings:</span>
-                    <div className="flex items-center gap-2">
-                      {player.rings.platinum > 0 && (
-                        <div className="flex items-center gap-1">
-                          <Trophy className="w-4 h-4 text-purple-400" />
-                          <span className="text-purple-400 font-bold">{player.rings.platinum}</span>
-                        </div>
-                      )}
-                      {player.rings.gold > 0 && (
-                        <div className="flex items-center gap-1">
-                          <Trophy className="w-4 h-4 text-yellow-400" />
-                          <span className="text-yellow-400 font-bold">{player.rings.gold}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              {/* Card Preview */}
-              {(showAllCards || index === currentPlayerView) && player.cards.length > 0 && (
-                <div className="mb-4">
-                  <div className="text-xs text-green-200 mb-2">Cards:</div>
-                  <div className="flex gap-1 flex-wrap">
-                    {player.cards.slice(0, 5).map((card, cardIndex) => (
-                      <div key={cardIndex} className="w-8 h-12 text-xs">
-                        <Card card={card} disabled={true} className="!w-8 !h-12 !text-xs" />
-                      </div>
-                    ))}
-                    {player.cards.length > 5 && (
-                      <div className="w-8 h-12 bg-white/10 rounded text-white text-xs flex items-center justify-center">
-                        +{player.cards.length - 5}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-              
-              {/* Actions */}
-              {gameState === 'playing' && !player.optedOut && (
-                <button
-                  onClick={() => optOut(index)}
-                  className="w-full px-3 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-300 rounded-lg text-sm transition-colors border border-red-500/30"
-                >
-                  Opt Out
-                </button>
-              )}
-              
-              {/* Points Progress Bar */}
-              <div className="mt-4">
-                <div className="w-full bg-white/10 rounded-full h-2">
-                  <div 
-                    className={`h-2 rounded-full transition-all duration-500 ${
-                      player.points >= 10 ? 'bg-red-500' : player.points >= 6 ? 'bg-yellow-500' : 'bg-green-500'
-                    }`}
-                    style={{ width: `${(player.points / 12) * 100}%` }}
-                  ></div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Game History */}
-        {gameHistory.length > 0 && (
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 mb-6 border border-white/20">
-            <h3 className="text-xl font-bold text-white mb-4">Previous Rounds</h3>
-            <div className="max-h-80 overflow-y-auto space-y-4">
-              {gameHistory.map((round, index) => (
-                <div key={index} className="bg-white/5 rounded-xl p-4 border border-white/10">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-white font-semibold">Round {round.roundNumber}</div>
-                    <div className="text-green-300 text-sm">
-                      Winner: {round.winner}
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {round.cards.map((cardPlay, cardIndex) => (
-                      <div key={cardIndex} className="text-center space-y-2">
-                        <Card card={cardPlay.card} disabled={true} className="mx-auto !w-12 !h-16" />
-                        <div className="text-xs text-green-200">{cardPlay.playerName}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+            <div className="flex gap-2 justify-center">
+              {players[currentPlayerView].cards.map((card, index) => (
+                <Card
+                  key={index}
+                  card={card}
+                  onClick={() => playCard(currentPlayerView, index)}
+                  disabled={currentPlayerView !== currentPlayer}
+                />
               ))}
             </div>
+            
+            <div className="mt-4 text-center">
+              {currentPlayerView === currentPlayer && (
+                <p className="text-lg font-bold text-yellow-300">It's your turn!</p>
+              )}
+              {currentPlayerView !== currentPlayer && (
+                <p className="text-lg text-green-200">Waiting for {players[currentPlayer].name}...</p>
+              )}
+            </div>
+
           </div>
         )}
 
-        {/* Game Rules */}
-        <div className="bg-gradient-to-r from-white/5 to-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-          <h3 className="text-xl font-bold text-white mb-4">Game Rules Summary</h3>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 text-green-100 text-sm">
-            <div>
-              <h4 className="font-semibold text-white mb-2">Card Values</h4>
-              <ul className="space-y-1">
-                <li>• 3♠ = 12 points</li>
-                <li>• Other 3s = 6 points</li>
-                <li>• 4s = 4 points</li>
-                <li>• Aces = 2 points</li>
-                <li>• Others = 1 point</li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold text-white mb-2">Dealing</h4>
-              <ul className="space-y-1">
-                <li>• Round 1: 3 cards each</li>
-                <li>• Round 2: 2 cards each</li>
-                <li>• Dealer deals to next player first</li>
-                <li>• Dealer receives cards last</li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold text-white mb-2">Gameplay</h4>
-              <ul className="space-y-1">
-                <li>• Follow calling card suit</li>
-                <li>• Winner attacks next player</li>
-                <li>• 12+ points = knockout</li>
-                <li>• Fouls = +2 points</li>
-                <li>• Win with 0 points = Ring!</li>
-              </ul>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
 };
 
-export default CardGame;
+export default App;
